@@ -68,3 +68,10 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+
+### to run the mongo db in system run this.
+
+### in cmd as administrator: C:\mongodb\bin\mongod.exe --dbpath C:\data\db
+
+### after you see waiting for connections then run: C:\mongodb\bin\mongosh.exe , after executing this you will see test prompt at last then connected.

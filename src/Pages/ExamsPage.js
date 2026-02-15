@@ -138,14 +138,9 @@ function ExamsPage({ students, exams, onUpdateExamMarks }) {
     alert("Marks saved successfully!");
   };
 
-  const calculateGrade = (total, subjects) => {
-    if (!subjects || subjects.length === 0) return "N/A";
-    const maxMarks = subjects.length * 100;
-    const percentage = (total / maxMarks) * 100;
-    if (percentage >= 80) return "A";
-    if (percentage >= 60) return "B";
-    if (percentage >= 40) return "C";
-    return "F";
+  const calculateGrade = (failedAny) => {
+    if (failedAny) return "F";
+    return "P";
   };
 
   if (!students || students.length === 0) {
@@ -224,7 +219,7 @@ function ExamsPage({ students, exams, onUpdateExamMarks }) {
                 <tbody>
                   {students.map((student) => {
                     const exam = exams.find(e => e.id === selectedExamId);
-                    const studentMarks = marksData[student.id] || (exam?.marks && exam.marks[student.id]) || {};
+                    const studentMarks = marksData[student._id] || (exam?.marks && exam.marks[student._id]) || {};
                     // Determine max marks per subject
                     let maxMarksPerSubject = 25;
                     if (
@@ -248,10 +243,10 @@ function ExamsPage({ students, exams, onUpdateExamMarks }) {
                     }) || [];
                     const total = subjectMarks.reduce((a, b) => a + b.mark, 0);
                     // If failed any subject, grade is F
-                    const grade = failedAny ? 'F' : calculateGrade(total, exam?.subjects);
+                    const grade = calculateGrade(failedAny);
 
                     return (
-                      <React.Fragment key={student.id}>
+                      <React.Fragment key={student._id}>
                         <tr style={{ backgroundColor: "rgba(255, 255, 255, 0.7)" }}>
                           <td style={tableCellStyle}><strong>{student.name}</strong></td>
                           {exam?.subjects.map((subject, idx) => {
@@ -273,7 +268,7 @@ function ExamsPage({ students, exams, onUpdateExamMarks }) {
                                     if (parseInt(value) > maxMarksPerSubject) value = maxMarksPerSubject;
                                     setMarksData({
                                       ...marksData,
-                                      [student.id]: {
+                                      [student._id]: {
                                         ...studentMarks,
                                         [subject]: value,
                                       },

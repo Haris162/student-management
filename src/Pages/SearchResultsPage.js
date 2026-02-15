@@ -8,8 +8,12 @@ function SearchResultsPage({ students, onDelete, onUpdate }) {
   const [filteredStudents, setFilteredStudents] = useState([]);
 
   useEffect(() => {
+    const q = query.toLowerCase();
     const results = students.filter(student =>
-      student.name.toLowerCase().includes(query.toLowerCase())
+      (student.name || "").toLowerCase().includes(q) ||
+      (student.studentClass || "").toLowerCase().includes(q) ||
+      (student.section || "").toLowerCase().includes(q) ||
+      (student.rollNumber || "").toLowerCase().includes(q)
     );
     setFilteredStudents(results);
   }, [query, students]);

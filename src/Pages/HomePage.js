@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-function HomePage() {
+function HomePage({ auth }) {
   const containerStyle = {
     minHeight: "calc(100vh - 120px)",
     background: "white",
@@ -110,20 +110,22 @@ function HomePage() {
         <p style={subtitleStyle}>Efficiently manage, track, and organize student information all in one place</p>
 
         <div style={cardsContainerStyle}>
-          <Link
-            to="/add-student"
-            style={cardStyle}
-            onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHoverStyle)}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "rgba(126, 200, 227, 0.15)";
-              e.currentTarget.style.boxShadow = "none";
-              e.currentTarget.style.transform = "translateY(0)";
-            }}
-          >
-            <div style={cardIconStyle}>➕</div>
-            <h2 style={cardTitleStyle}>Add Student</h2>
-            <p style={cardDescriptionStyle}>Create a new student record with name, age, and marks information</p>
-          </Link>
+          {auth?.user?.role === 'admin' && (
+            <Link
+              to="/add-student"
+              style={cardStyle}
+              onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHoverStyle)}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(126, 200, 227, 0.15)";
+                e.currentTarget.style.boxShadow = "none";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              <div style={cardIconStyle}>➕</div>
+              <h2 style={cardTitleStyle}>Add Student</h2>
+              <p style={cardDescriptionStyle}>Create a new student record with name, age, and marks information</p>
+            </Link>
+          )}
 
           <Link
             to="/students"

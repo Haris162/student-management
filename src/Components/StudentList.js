@@ -1,12 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-function StudentList({ students, onDelete, onUpdate }) {
+function StudentList({ students, onDelete }) {
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [classFilter, setClassFilter] = useState("");
-  const [editingId, setEditingId] = useState(null);
-  const [editData, setEditData] = useState({});
   const [selectedIds, setSelectedIds] = useState(new Set());
   const navigate = useNavigate();
 
@@ -90,14 +88,8 @@ function StudentList({ students, onDelete, onUpdate }) {
     };
     if (type === "delete") {
       return { ...baseStyle, backgroundColor: "#ff6b6b", color: "white" };
-    } else if (type === "edit") {
-      return { ...baseStyle, backgroundColor: "#7ec8e3", color: "#1e3c72" };
     } else if (type === "view") {
       return { ...baseStyle, backgroundColor: "#2a5298", color: "white" };
-    } else if (type === "save") {
-      return { ...baseStyle, backgroundColor: "#27ae60", color: "white" };
-    } else if (type === "cancel") {
-      return { ...baseStyle, backgroundColor: "#999", color: "white" };
     }
   };
 
@@ -133,16 +125,6 @@ function StudentList({ students, onDelete, onUpdate }) {
     transition: "all 0.2s ease",
   };
 
-  const editInputStyle = {
-    padding: "6px 10px",
-    border: "1px solid #2a5298",
-    borderRadius: "4px",
-    fontSize: "13px",
-    width: "100%",
-    boxSizing: "border-box",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-  };
-
   const emptyContainerStyle = {
     padding: "80px 30px",
     textAlign: "center",
@@ -168,16 +150,6 @@ function StudentList({ students, onDelete, onUpdate }) {
     const matchesClass = classFilter ? student.studentClass === classFilter : true;
     return matchesName && matchesClass;
   });
-
-  const startEdit = (student) => {
-    setEditingId(student._id);
-    setEditData({ ...student });
-  };
-
-  const saveEdit = (id) => {
-    onUpdate(id, editData);
-    setEditingId(null);
-  };
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
@@ -292,67 +264,21 @@ function StudentList({ students, onDelete, onUpdate }) {
                     />
                   </td>
                   <td style={cellStyle}><strong>{String(index + 1).padStart(2, "0")}</strong></td>
-                  {editingId === student._id ? (
-                    <>
-                      <td style={cellStyle}>
-                        <input
-                          type="text"
-                          value={editData.name}
-                          onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                          style={editInputStyle}
-                        />
-                      </td>
-                      <td style={cellStyle}>
-                        <input
-                          type="number"
-                          value={editData.age}
-                          onChange={(e) => setEditData({ ...editData, age: e.target.value })}
-                          style={editInputStyle}
-                        />
-                      </td>
-                      <td style={cellStyle}>
-                        <input
-                          type="text"
-                          value={editData.studentClass}
-                          onChange={(e) => setEditData({ ...editData, studentClass: e.target.value })}
-                          style={editInputStyle}
-                        />
-                      </td>
-                      <td style={cellStyle}>
-                        <select
-                          value={editData.section}
-                          onChange={(e) => setEditData({ ...editData, section: e.target.value })}
-                          style={editInputStyle}
-                        >
-                          <option value="A">A</option>
-                          <option value="B">B</option>
-                        </select>
-                      </td>
-                      <td style={cellStyle}>
-                        <button style={actionButtonStyle("save")} onClick={() => saveEdit(student.id)}>💾 Save</button>
-                        <button style={actionButtonStyle("cancel")} onClick={() => setEditingId(null)}>❌ Cancel</button>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td style={cellStyle}>
-                        <strong>{student.name}</strong>
-                        {student.rollNumber && (
-                          <span style={{ marginLeft: '8px', color: '#2a5298', fontWeight: 400 }}>
-                            (Roll No: {student.rollNumber})
-                          </span>
-                        )}
-                      </td>
-                      <td style={cellStyle}>{student.age}</td>
-                      <td style={cellStyle}><strong>{student.studentClass}</strong></td>
-                      <td style={cellStyle}><strong>{student.section}</strong></td>
-                      <td style={cellStyle}>
-                        <button style={actionButtonStyle("view")} onClick={() => navigate(`/student/${student._id}`)}>👁️ View</button>
-                        <button style={actionButtonStyle("edit")} onClick={() => startEdit(student)}>✏️ Edit</button>
-                        <button style={actionButtonStyle("delete")} onClick={() => onDelete(student._id)}>🗑️ Delete</button>
-                      </td>
-                    </>
-                  )}
+                  <td style={cellStyle}>
+                    <strong>{student.name}</strong>
+                    {student.rollNumber && (
+                      <span style={{ marginLeft: '8px', color: '#2a5298', fontWeight: 400 }}>
+                        (Roll No: {student.rollNumber})
+                      </span>
+                    )}
+                  </td>
+                  <td style={cellStyle}>{student.age}</td>
+                  <td style={cellStyle}><strong>{student.studentClass}</strong></td>
+                  <td style={cellStyle}><strong>{student.section}</strong></td>
+                  <td style={cellStyle}>
+                    <button style={actionButtonStyle("view")} onClick={() => navigate(`/student/${student._id}`)}>👁️ View</button>
+                    <button style={actionButtonStyle("delete")} onClick={() => onDelete(student._id)}>🗑️ Delete</button>
+                  </td>
                 </tr>
               ))}
             </tbody>

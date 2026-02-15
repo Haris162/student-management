@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import Navigation from "./Components/Navigation";
 import HomePage from "./Pages/HomePage";
@@ -8,6 +8,9 @@ import ViewStudentsPage from "./Pages/ViewStudentsPage";
 import SearchResultsPage from "./Pages/SearchResultsPage";
 import StudentProfilePage from "./Pages/StudentProfilePage";
 import ExamsPage from "./Pages/ExamsPage";
+import LoginPage from "./Pages/LoginPage";
+import AccountPage from "./Pages/AccountPage";
+import AddUserPage from "./Pages/AddUserPage";
 
 function App() {
   const apiBase = `http://${window.location.hostname}:5000`;
@@ -51,49 +54,110 @@ function App() {
   ];
 
   const [students, setStudents] = useState([]);
-  const [exams, setExams] = useState(predefinedExams);
+  const [exams, setExams] = useState([]);
+  const [auth, setAuth] = useState(() => {
+    const raw = localStorage.getItem("sms_auth");
+    return raw ? JSON.parse(raw) : null;
+  });
 
-  React.useEffect(() => {
-    fetch(`${apiBase}/students`)
+  const token = auth?.token;
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const handleLogin = (data) => {
+    localStorage.setItem("sms_auth", JSON.stringify(data));
+    setAuth(data);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("sms_auth");
+    setAuth(null);
+  };
+
+  const refreshStudents = () => {
+    return fetch(`${apiBase}/students`, { headers: { ...authHeaders } })
       .then(res => res.json())
       .then(data => setStudents(data));
-  }, []);
+  };
+
+  React.useEffect(() => {
+    if (!token) return;
+    refreshStudents();
+  }, [token]);
+
+  const normalizeExams = (data) => data.map(exam => ({
+    ...exam,
+    id: exam.examId ?? exam.id,
+  }));
+
+  React.useEffect(() => {
+    if (!token) return;
+    fetch(`${apiBase}/exams`, { headers: { ...authHeaders } })
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setExams(normalizeExams(data));
+          return;
+        }
+        Promise.all(
+          predefinedExams.map(exam =>
+            fetch(`${apiBase}/exams`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...authHeaders },
+              body: JSON.stringify(exam)
+            }).then(res => res.json())
+          )
+        ).then(created => setExams(normalizeExams(created)));
+      });
+  }, [token]);
 
   const addStudent = (student) => {
     fetch(`${apiBase}/students`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(student)
     })
       .then(res => res.json())
-      .then(newStudent => setStudents(prev => [...prev, newStudent]));
+      .then(() => refreshStudents());
   };
 
   const deleteStudent = (id) => {
     fetch(`${apiBase}/students/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: { ...authHeaders }
     })
       .then(res => {
-        if (res.ok) setStudents(prev => prev.filter(student => student._id !== id));
+        if (res.ok) refreshStudents();
       });
   };
 
   const updateStudent = (id, updatedStudent) => {
     fetch(`${apiBase}/students/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(updatedStudent)
     })
       .then(res => res.json())
-      .then(updated => setStudents(prev => prev.map(student => student._id === id ? updated : student)));
+      .then(() => refreshStudents());
   };
 
   const addExam = (exam) => {
-    setExams([...exams, { ...exam, id: Date.now(), marks: {} }]);
+    fetch(`${apiBase}/exams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
+      body: JSON.stringify({ ...exam, id: Date.now(), marks: {} })
+    })
+      .then(res => res.json())
+      .then(newExam => setExams(prev => [...prev, { ...newExam, id: newExam.examId ?? newExam.id }]));
   };
 
   const updateExamMarks = (examId, marksData) => {
-    setExams(exams.map(exam => exam.id === examId ? { ...exam, marks: marksData } : exam));
+    fetch(`${apiBase}/exams/${examId}/marks`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
+      body: JSON.stringify({ marks: marksData })
+    })
+      .then(res => res.json())
+      .then(updated => setExams(prev => prev.map(exam => (exam.id === examId || exam.examId === examId) ? { ...updated, id: updated.examId ?? updated.id } : exam)));
   };
 
   const deleteExam = (examId) => {
@@ -158,68 +222,123 @@ function App() {
     minHeight: "100vh",
     background: "white",
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    paddingTop: token ? "60px" : "0",
   };
 
   const navContainerStyle = {
-    padding: "20px 40px",
+    padding: "0",
+    position: "fixed",
+    top: "0",
+    left: "0",
+    right: "0",
+    zIndex: "1000",
+  };
+
+  const RequireAuth = ({ children }) => {
+    return token ? children : <Navigate to="/login" replace />;
+  };
+
+  const RequireAdmin = ({ children }) => {
+    if (!token) return <Navigate to="/login" replace />;
+    if (auth?.user?.role !== 'admin') return <Navigate to="/" replace />;
+    return children;
   };
 
   return (
     <Router>
       <div style={appStyle}>
-        <div style={navContainerStyle}>
-          <Navigation />
-        </div>
+        {token && (
+          <div style={navContainerStyle}>
+            <Navigation students={students} onLogout={handleLogout} auth={auth} />
+          </div>
+        )}
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage apiBase={apiBase} onLogin={handleLogin} />} />
+          <Route
+            path="/"
+            element={
+              <RequireAuth>
+                <HomePage auth={auth} />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/add-student"
-            element={<AddStudentPage onAddStudent={addStudent} />}
+            element={
+              <RequireAdmin>
+                <AddStudentPage onAddStudent={addStudent} />
+              </RequireAdmin>
+            }
           />
           <Route
             path="/students"
             element={
-              <ViewStudentsPage
-                students={students}
-                onDelete={deleteStudent}
-                onUpdate={updateStudent}
-                handlePrint={handlePrint}
-                handleExportExcel={handleExportExcel}
-              />
+              <RequireAuth>
+                <ViewStudentsPage
+                  students={students}
+                  onDelete={deleteStudent}
+                  onUpdate={updateStudent}
+                  handlePrint={handlePrint}
+                  handleExportExcel={handleExportExcel}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/search"
             element={
-              <SearchResultsPage
-                students={students}
-                onDelete={deleteStudent}
-                onUpdate={updateStudent}
-              />
+              <RequireAuth>
+                <SearchResultsPage
+                  students={students}
+                  onDelete={deleteStudent}
+                  onUpdate={updateStudent}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/student/:id"
             element={
-              <StudentProfilePage
-                students={students}
-                onUpdate={updateStudent}
-                exams={exams}
-              />
+              <RequireAuth>
+                <StudentProfilePage
+                  students={students}
+                  onUpdate={updateStudent}
+                  exams={exams}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/exams"
             element={
-              <ExamsPage
-                students={students}
-                exams={exams}
-                onAddExam={addExam}
-                onUpdateExamMarks={updateExamMarks}
-                onDeleteExam={deleteExam}
-              />
+              <RequireAuth>
+                <ExamsPage
+                  students={students}
+                  exams={exams}
+                  onAddExam={addExam}
+                  onUpdateExamMarks={updateExamMarks}
+                  onDeleteExam={deleteExam}
+                />
+              </RequireAuth>
             }
           />
+          <Route
+            path="/account"
+            element={
+              <RequireAuth>
+                <AccountPage apiBase={apiBase} authHeaders={authHeaders} auth={auth} />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/add-user"
+            element={
+              <RequireAdmin>
+                <AddUserPage apiBase={apiBase} authHeaders={authHeaders} auth={auth} />
+              </RequireAdmin>
+            }
+          />
+          <Route path="*" element={<Navigate to={token ? "/" : "/login"} replace />} />
         </Routes>
       </div>
     </Router>
