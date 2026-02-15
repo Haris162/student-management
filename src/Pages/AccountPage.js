@@ -15,13 +15,26 @@ function AccountPage({ apiBase, authHeaders, auth }) {
   const [editPhoneNumber, setEditPhoneNumber] = useState("");
   const [userRequests, setUserRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotificationForm, setShowNotificationForm] = useState(false);
+  const [notificationTitle, setNotificationTitle] = useState("");
+  const [notificationMessage, setNotificationMessage] = useState("");
+  const [notificationType, setNotificationType] = useState("general");
+  const [notificationDate, setNotificationDate] = useState("");
+  const [attachmentUrl, setAttachmentUrl] = useState("");
+  const [attachmentName, setAttachmentName] = useState("");
+  const [editingNotificationId, setEditingNotificationId] = useState(null);
 
   const isPrincipal = auth?.user?.role === 'principal';
   const isAdmin = auth?.user?.role === 'admin';
+  const canCreateNotification = isAdmin || isPrincipal;
 
   useEffect(() => {
     if (isPrincipal && activeTab === 'requests') {
       fetchUserRequests();
+    }
+    if (activeTab === 'notifications') {
+      fetchNotifications();
     }
   }, [isPrincipal, activeTab]);
 
@@ -336,6 +349,123 @@ function AccountPage({ apiBase, authHeaders, auth }) {
       .finally(() => setIsLoading(false));
   };
 
+  const fetchNotifications = () => {
+    setIsLoading(true);
+    fetch(`${apiBase}/notifications`, { headers: { ...authHeaders } })
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch notifications');
+        return res.json();
+      })
+      .then(data => setNotifications(data))
+      .catch(err => {
+        console.error('Error fetching notifications:', err);
+        setError('Failed to load notifications');
+      })
+      .finally(() => setIsLoading(false));
+  };
+
+  const handleNotificationSubmit = (e) => {
+    e.preventDefault();
+    console.log('Form submitted!');
+    setError("");
+    setMessage("");
+
+    if (!notificationTitle.trim() || !notificationMessage.trim()) {
+      setError("Title and message are required");
+      console.log('Validation failed: Title or message is empty');
+      return;
+    }
+
+    const notificationData = {
+      title: notificationTitle,
+      message: notificationMessage,
+      type: notificationType,
+      attachmentUrl: attachmentUrl.trim() || undefined,
+      attachmentName: attachmentName.trim() || undefined,
+    };
+
+    // Only include date if it was selected
+    if (notificationDate) {
+      notificationData.notificationDate = new Date(notificationDate).toISOString();
+      console.log('Date included:', notificationData.notificationDate);
+    }
+
+    console.log('Submitting notification:', notificationData);
+
+    const url = editingNotificationId 
+      ? `${apiBase}/notifications/${editingNotificationId}`
+      : `${apiBase}/notifications`;
+    const method = editingNotificationId ? 'PUT' : 'POST';
+
+    setIsLoading(true);
+    fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: JSON.stringify(notificationData),
+    })
+      .then(res => {
+        console.log('Response status:', res.status);
+        if (!res.ok) throw new Error('Failed to save notification');
+        return res.json();
+      })
+      .then((data) => {
+        console.log('Success:', data);
+        setMessage(editingNotificationId ? 'Notification updated successfully!' : 'Notification created successfully!');
+        resetNotificationForm();
+        fetchNotifications();
+      })
+      .catch(err => {
+        console.error('Error saving notification:', err);
+        setError(err.message || 'Failed to save notification');
+      })
+      .finally(() => setIsLoading(false));
+  };
+
+  const handleEditNotification = (notification) => {
+    setEditingNotificationId(notification._id);
+    setNotificationTitle(notification.title);
+    setNotificationMessage(notification.message);
+    setNotificationType(notification.type);
+    setNotificationDate(notification.notificationDate ? new Date(notification.notificationDate).toISOString().split('T')[0] : "");
+    setAttachmentUrl(notification.attachmentUrl || "");
+    setAttachmentName(notification.attachmentName || "");
+    setShowNotificationForm(true);
+  };
+
+  const handleDeleteNotification = (id) => {
+    if (!window.confirm('Are you sure you want to delete this notification?')) return;
+
+    setIsLoading(true);
+    fetch(`${apiBase}/notifications/${id}`, {
+      method: 'DELETE',
+      headers: { ...authHeaders },
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to delete notification');
+        return res.json();
+      })
+      .then(() => {
+        setMessage('Notification deleted successfully!');
+        fetchNotifications();
+      })
+      .catch(err => setError(err.message || 'Failed to delete notification'))
+      .finally(() => setIsLoading(false));
+  };
+
+  const resetNotificationForm = () => {
+    setNotificationTitle("");
+    setNotificationMessage("");
+    setNotificationType("general");
+    setNotificationDate("");
+    setAttachmentUrl("");
+    setAttachmentName("");
+    setEditingNotificationId(null);
+    setShowNotificationForm(false);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case "personal-info":
@@ -482,10 +612,227 @@ function AccountPage({ apiBase, authHeaders, auth }) {
 
       case "notifications":
         return (
-          <div style={cardStyle}>
-            <h1 style={titleStyle}>Notification Preferences</h1>
-            <p style={subtitleStyle}>Manage your notification settings</p>
-            <div style={comingSoonStyle}>Coming Soon...</div>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+              <div>
+                <h1 style={titleStyle}>📢 School Notifications</h1>
+                <p style={subtitleStyle}>View and manage school-wide announcements</p>
+              </div>
+              {canCreateNotification && !showNotificationForm && (
+                <button
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: '#2a5298',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setShowNotificationForm(true)}
+                  onMouseOver={(e) => e.target.style.backgroundColor = '#1e3c72'}
+                  onMouseOut={(e) => e.target.style.backgroundColor = '#2a5298'}
+                >
+                  ➕ Create Notification
+                </button>
+              )}
+            </div>
+
+            {message && <div style={successStyle}>{message}</div>}
+            {error && <div style={errorStyle}>{error}</div>}
+
+            {showNotificationForm && (
+              <div style={cardStyle}>
+                <h2 style={{ fontSize: '20px', color: '#1e3c72', marginBottom: '20px' }}>
+                  {editingNotificationId ? 'Edit Notification' : 'Create New Notification'}
+                </h2>
+                <form onSubmit={handleNotificationSubmit}>
+                  <label style={labelStyle}>Title *</label>
+                  <input
+                    type="text"
+                    value={notificationTitle}
+                    onChange={(e) => setNotificationTitle(e.target.value)}
+                    style={inputStyle}
+                    placeholder="e.g., School Holiday - Republic Day"
+                    required
+                  />
+
+                  <label style={labelStyle}>Message *</label>
+                  <textarea
+                    value={notificationMessage}
+                    onChange={(e) => setNotificationMessage(e.target.value)}
+                    style={{ ...inputStyle, minHeight: '100px', fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", resize: 'vertical' }}
+                    placeholder="Enter the notification details..."
+                    required
+                  />
+
+                  <label style={labelStyle}>Type</label>
+                  <select
+                    value={notificationType}
+                    onChange={(e) => setNotificationType(e.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value="general">General</option>
+                    <option value="holiday">Holiday</option>
+                    <option value="urgent">Urgent</option>
+                    <option value="event">Event</option>
+                  </select>
+
+                  <label style={labelStyle}>Notification Date</label>
+                  <input
+                    type="date"
+                    value={notificationDate}
+                    onChange={(e) => setNotificationDate(e.target.value)}
+                    style={inputStyle}
+                  />
+
+                  <label style={labelStyle}>Attachment URL (Optional)</label>
+                  <input
+                    type="url"
+                    value={attachmentUrl}
+                    onChange={(e) => setAttachmentUrl(e.target.value)}
+                    style={inputStyle}
+                    placeholder="https://example.com/document.pdf"
+                  />
+
+                  <label style={labelStyle}>Attachment Name (Optional)</label>
+                  <input
+                    type="text"
+                    value={attachmentName}
+                    onChange={(e) => setAttachmentName(e.target.value)}
+                    style={inputStyle}
+                    placeholder="Holiday Notice.pdf"
+                  />
+
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                    <button
+                      type="submit"
+                      style={buttonStyle}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Saving...' : editingNotificationId ? 'Update' : 'Create'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetNotificationForm}
+                      style={{ ...buttonStyle, backgroundColor: '#95a5a6' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {isLoading && notifications.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#5c6c86' }}>
+                Loading notifications...
+              </div>
+            ) : notifications.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px', color: '#5c6c86' }}>
+                <div style={{ fontSize: '64px', marginBottom: '20px' }}>📭</div>
+                <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>
+                  No notifications yet
+                </div>
+                <div style={{ fontSize: '14px' }}>
+                  {canCreateNotification ? 'Create your first notification to inform everyone!' : 'Check back later for updates'}
+                </div>
+              </div>
+            ) : (
+              <div>
+                {notifications.map((notification) => (
+                  <div key={notification._id} style={cardStyle}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e3c72', margin: '0 0 8px 0' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            textTransform: 'uppercase',
+                            backgroundColor: 
+                              notification.type === 'urgent' ? '#e74c3c' :
+                              notification.type === 'holiday' ? '#27ae60' :
+                              notification.type === 'event' ? '#f39c12' :
+                              '#3498db',
+                            color: 'white',
+                            marginRight: '8px',
+                          }}>
+                            {notification.type}
+                          </span>
+                          {notification.title}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#7f8c8d', marginBottom: '12px' }}>
+                          Posted by {notification.createdByName} ({notification.createdByRole}) • {new Date(notification.createdAt).toLocaleDateString()} at {new Date(notification.createdAt).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: '14px', color: '#333', lineHeight: '1.6', marginBottom: '12px' }}>
+                      {notification.message}
+                    </div>
+
+                    {notification.attachmentUrl && (
+                      <div style={{
+                        marginTop: '12px',
+                        padding: '10px',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '6px',
+                        border: '1px solid #dee2e6',
+                      }}>
+                        <span style={{ fontSize: '12px', color: '#666', marginRight: '10px' }}>📎 Attachment:</span>
+                        <a 
+                          href={notification.attachmentUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ color: '#2a5298', textDecoration: 'none', fontWeight: '600', fontSize: '13px' }}
+                        >
+                          {notification.attachmentName || notification.attachmentUrl}
+                        </a>
+                      </div>
+                    )}
+
+                    {canCreateNotification && (
+                      <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                        <button
+                          onClick={() => handleEditNotification(notification)}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            backgroundColor: '#f39c12',
+                            color: 'white',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNotification(notification._id)}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            backgroundColor: '#e74c3c',
+                            color: 'white',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
 

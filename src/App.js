@@ -258,7 +258,7 @@ function App() {
             path="/"
             element={
               <RequireAuth>
-                <HomePage auth={auth} />
+                <HomePage auth={auth} apiBase={apiBase} authHeaders={authHeaders} />
               </RequireAuth>
             }
           />

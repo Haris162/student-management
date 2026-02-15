@@ -1,7 +1,158 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
-function HomePage({ auth }) {
+function HomePage({ auth, apiBase, authHeaders }) {
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [notifications, setNotifications] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  useEffect(() => {
+    if (authHeaders?.Authorization) {
+      fetchNotifications();
+    }
+  }, [authHeaders]);
+
+  const fetchNotifications = () => {
+    fetch(`${apiBase}/notifications`, { headers: { ...authHeaders } })
+      .then(res => res.ok ? res.json() : [])
+      .then(data => {
+        console.log('Fetched notifications:', data);
+        setNotifications(data);
+      })
+      .catch(err => console.error('Error fetching notifications:', err));
+  };
+
+  const getNotificationsForDate = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    const matches = notifications.filter(notif => {
+      if (!notif.notificationDate) {
+        console.log('Notification has no date:', notif.title);
+        return false;
+      }
+      try {
+        const notifDate = new Date(notif.notificationDate).toISOString().split('T')[0];
+        const isMatch = notifDate === dateStr;
+        if (isMatch) {
+          console.log(`Match found: ${notifDate} === ${dateStr} for ${notif.title}`);
+        }
+        return isMatch;
+      } catch (err) {
+        console.error('Error parsing notification date:', notif.notificationDate, err);
+        return false;
+      }
+    });
+    return matches;
+  };
+
+  const generateCalendar = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startingDayOfWeek = firstDay.getDay();
+    const daysInMonth = lastDay.getDate();
+
+    const days = [];
+    // Add empty cells for days before the 1st
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(<div key={`empty-${i}`} style={emptyDayStyle}></div>);
+    }
+
+    // Add actual days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const dayNotifications = getNotificationsForDate(date);
+      const isToday = new Date().toDateString() === date.toDateString();
+      
+      days.push(
+        <div
+          key={day}
+          style={{
+            ...dayStyle,
+            backgroundColor: isToday ? 'rgba(42, 82, 152, 0.1)' : dayNotifications.length > 0 ? 'rgba(255, 255, 255, 0.9)' : 'white',
+            border: isToday ? '2px solid #2a5298' : dayNotifications.length > 0 ? '2px solid #2a5298' : '1px solid #ddd',
+            boxShadow: dayNotifications.length > 0 ? '0 2px 8px rgba(42, 82, 152, 0.15)' : 'none',
+            overflow: 'hidden',
+          }}
+          onClick={() => setSelectedDate(date)}
+          title={dayNotifications.length > 0 ? dayNotifications.map(n => n.title).join(', ') : ''}
+        >
+          <div style={{ fontWeight: isToday || dayNotifications.length > 0 ? '700' : '600', color: isToday || dayNotifications.length > 0 ? '#2a5298' : '#333', marginBottom: '4px' }}>
+            {day}
+          </div>
+          {dayNotifications.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '10px' }}>
+              {dayNotifications.slice(0, 2).map((notif, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    padding: '2px 4px',
+                    borderRadius: '3px',
+                    backgroundColor: 
+                      notif.type === 'urgent' ? '#e74c3c' :
+                      notif.type === 'holiday' ? '#f39c12' :
+                      notif.type === 'event' ? '#9b59b6' :
+                      '#3498db',
+                    color: 'white',
+                    fontWeight: '600',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '100%',
+                    cursor: 'pointer',
+                  }}
+                  title={notif.title}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedDate(date);
+                  }}
+                >
+                  {notif.title}
+                </div>
+              ))}
+              {dayNotifications.length > 2 && (
+                <div style={{
+                  padding: '2px 4px',
+                  fontSize: '9px',
+                  color: '#2a5298',
+                  fontWeight: '700',
+                  textAlign: 'center',
+                }}>
+                  +{dayNotifications.length - 2} more
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return days;
+  };
+
+  const changeMonth = (direction) => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(currentDate.getMonth() + direction);
+    setCurrentDate(newDate);
+  };
+
+  const monthNames = ["January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
+
+  const emptyDayStyle = {
+    padding: '10px',
+    minHeight: '80px',
+  };
+
+  const dayStyle = {
+    padding: '10px',
+    minHeight: '80px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    fontSize: '14px',
+  };
   const containerStyle = {
     minHeight: "calc(100vh - 120px)",
     background: "white",
@@ -109,7 +260,250 @@ function HomePage({ auth }) {
         <h1 style={titleStyle}>📚 Welcome to Student Management System</h1>
         <p style={subtitleStyle}>Efficiently manage, track, and organize student information all in one place</p>
 
+        {/* Calendar Section */}
+        {showCalendar && (
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '15px',
+            padding: '30px',
+            marginTop: '30px',
+            marginBottom: '30px',
+            border: '2px solid rgba(42, 82, 152, 0.2)',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+            }}>
+              <button
+                onClick={() => changeMonth(-1)}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: '#2a5298',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '700',
+                }}
+              >
+                ← Prev
+              </button>
+              <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#1e3c72', margin: 0 }}>
+                📅 {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              </h2>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => changeMonth(1)}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: '#2a5298',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                  }}
+                >
+                  Next →
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCalendar(false);
+                    setSelectedDate(null);
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: '#95a5a6',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                  }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(7, 1fr)',
+            gap: '5px',
+            marginBottom: '10px',
+          }}>
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+              <div key={day} style={{
+                padding: '10px',
+                textAlign: 'center',
+                fontWeight: '700',
+                color: '#2a5298',
+                fontSize: '14px',
+              }}>
+                {day}
+              </div>
+            ))}
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(7, 1fr)',
+            gap: '5px',
+          }}>
+            {generateCalendar()}
+          </div>
+
+          {/* Legend */}
+          <div style={{
+            marginTop: '20px',
+            display: 'flex',
+            gap: '20px',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            fontSize: '12px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#3498db' }}></div>
+              <span>General</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f39c12' }}></div>
+              <span>Holiday</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#e74c3c' }}></div>
+              <span>Urgent</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#9b59b6' }}></div>
+              <span>Event</span>
+            </div>
+          </div>
+
+          {/* Selected Date Notifications */}
+          {selectedDate && (
+            <div style={{
+              marginTop: '20px',
+              padding: '20px',
+              backgroundColor: 'rgba(126, 200, 227, 0.1)',
+              borderRadius: '10px',
+              border: '1px solid rgba(42, 82, 152, 0.2)',
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '15px',
+              }}>
+                <h3 style={{ margin: 0, color: '#1e3c72', fontSize: '18px' }}>
+                  Notifications for {selectedDate.toLocaleDateString()}
+                </h3>
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  style={{
+                    padding: '5px 15px',
+                    borderRadius: '5px',
+                    border: 'none',
+                    backgroundColor: '#95a5a6',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+              {getNotificationsForDate(selectedDate).length === 0 ? (
+                <p style={{ color: '#666', margin: 0 }}>No notifications for this date.</p>
+              ) : (
+                getNotificationsForDate(selectedDate).map((notif, idx) => (
+                  <div key={idx} style={{
+                    padding: '15px',
+                    backgroundColor: 'white',
+                    borderRadius: '8px',
+                    marginBottom: '10px',
+                    border: '1px solid #ddd',
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      marginBottom: '8px',
+                    }}>
+                      <span style={{
+                        padding: '4px 10px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        textTransform: 'uppercase',
+                        backgroundColor:
+                          notif.type === 'urgent' ? '#fee' :
+                          notif.type === 'holiday' ? '#fef5e7' :
+                          notif.type === 'event' ? '#f4ecf7' :
+                          '#e3f2fd',
+                        color:
+                          notif.type === 'urgent' ? '#e74c3c' :
+                          notif.type === 'holiday' ? '#f39c12' :
+                          notif.type === 'event' ? '#9b59b6' :
+                          '#3498db',
+                      }}>
+                        {notif.type}
+                      </span>
+                      <h4 style={{ margin: 0, color: '#1e3c72', fontSize: '16px' }}>{notif.title}</h4>
+                    </div>
+                    <p style={{ margin: '8px 0 0 0', color: '#555', fontSize: '14px' }}>{notif.message}</p>
+                    {notif.attachmentUrl && (
+                      <a
+                        href={notif.attachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-block',
+                          marginTop: '10px',
+                          color: '#2a5298',
+                          textDecoration: 'none',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                        }}
+                      >
+                        📎 {notif.attachmentName || 'View Attachment'}
+                      </a>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+          </div>
+        )}
+
         <div style={cardsContainerStyle}>
+          <div
+            style={cardStyle}
+            onClick={() => {
+              setShowCalendar(true);
+              if (authHeaders?.Authorization) {
+                fetchNotifications();
+              }
+            }}
+            onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHoverStyle)}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "rgba(126, 200, 227, 0.15)";
+              e.currentTarget.style.boxShadow = "none";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+          >
+            <div style={cardIconStyle}>📅</div>
+            <h2 style={cardTitleStyle}>School Calendar</h2>
+            <p style={cardDescriptionStyle}>View notifications and events scheduled on the calendar</p>
+          </div>
+
           {auth?.user?.role === 'admin' && (
             <Link
               to="/add-student"

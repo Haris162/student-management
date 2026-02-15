@@ -84,6 +84,22 @@ const userRequestSchema = new mongoose.Schema({
 
 const UserRequest = mongoose.model('UserRequest', userRequestSchema);
 
+const notificationSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  type: { type: String, default: 'general' }, // general, holiday, urgent, event
+  notificationDate: { type: Date },
+  attachmentUrl: String,
+  attachmentName: String,
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  createdByName: String,
+  createdByRole: String,
+  createdAt: { type: Date, default: Date.now },
+  isActive: { type: Boolean, default: true },
+});
+
+const Notification = mongoose.model('Notification', notificationSchema);
+
 const JWT_SECRET = process.env.JWT_SECRET || 'sms_dev_secret';
 
 const createToken = (user) => {
@@ -350,6 +366,105 @@ app.post('/user-requests/:id/reject', requireAuth, asyncHandler(async (req, res)
 
   res.send({
     message: 'User request rejected successfully',
+  });
+}));
+
+// Notification endpoints
+// Get all notifications
+app.get('/notifications', requireAuth, asyncHandler(async (req, res) => {
+  const notifications = await Notification.find({ isActive: true })
+    .sort({ createdAt: -1 })
+    .limit(50);
+  res.send(notifications);
+}));
+
+// Create notification (admin and principal only)
+app.post('/notifications', requireAuth, asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'principal') {
+    return res.status(403).send('Only admins and principals can create notifications');
+  }
+
+  const { title, message, type, notificationDate, attachmentUrl, attachmentName } = req.body || {};
+  
+  console.log('Received notification data:', { title, message, type, notificationDate, attachmentUrl, attachmentName });
+  
+  if (!title || !message) {
+    return res.status(400).send('Title and message are required');
+  }
+
+  const notificationObj = {
+    title,
+    message,
+    type: type || 'general',
+    attachmentUrl,
+    attachmentName,
+    createdBy: req.user.id,
+    createdByName: req.user.name,
+    createdByRole: req.user.role,
+  };
+
+  // Handle notificationDate
+  if (notificationDate) {
+    notificationObj.notificationDate = new Date(notificationDate);
+    console.log('Notification date set to:', notificationObj.notificationDate);
+  } else {
+    console.log('No notificationDate provided');
+  }
+
+  console.log('About to save notification object:', notificationObj);
+  const notification = await Notification.create(notificationObj);
+  console.log('Saved notification:', notification.toObject());
+
+  res.status(201).send({
+    message: 'Notification created successfully',
+    notification,
+  });
+}));
+
+// Update notification (admin and principal only)
+app.put('/notifications/:id', requireAuth, asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'principal') {
+    return res.status(403).send('Only admins and principals can update notifications');
+  }
+
+  const notification = await Notification.findById(req.params.id);
+  if (!notification) {
+    return res.status(404).send('Notification not found');
+  }
+
+  const { title, message, type, notificationDate, attachmentUrl, attachmentName } = req.body || {};
+  
+  if (title) notification.title = title;
+  if (message) notification.message = message;
+  if (type) notification.type = type;
+  if (notificationDate) notification.notificationDate = new Date(notificationDate);
+  if (attachmentUrl !== undefined) notification.attachmentUrl = attachmentUrl;
+  if (attachmentName !== undefined) notification.attachmentName = attachmentName;
+
+  await notification.save();
+
+  res.send({
+    message: 'Notification updated successfully',
+    notification,
+  });
+}));
+
+// Delete notification (admin and principal only)
+app.delete('/notifications/:id', requireAuth, asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'principal') {
+    return res.status(403).send('Only admins and principals can delete notifications');
+  }
+
+  const notification = await Notification.findById(req.params.id);
+  if (!notification) {
+    return res.status(404).send('Notification not found');
+  }
+
+  notification.isActive = false;
+  await notification.save();
+
+  res.send({
+    message: 'Notification deleted successfully',
   });
 }));
 
