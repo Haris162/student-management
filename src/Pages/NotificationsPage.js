@@ -27,6 +27,7 @@ function NotificationsPage({ apiBase, authHeaders, auth, unreadCount = 0, refres
   const [editingId, setEditingId] = useState(null);
   const [selectedNotification, setSelectedNotification] = useState(null);
   const justOpenedRef = useRef(false);
+  const dateInputRef = useRef(null);
 
   const canCreate = auth?.user?.role === 'admin' || auth?.user?.role === 'principal';
 
@@ -240,30 +241,29 @@ function NotificationsPage({ apiBase, authHeaders, auth, unreadCount = 0, refres
     boxSizing: "border-box",
   };
 
+  const dateInputStyle = {
+    ...inputStyle,
+    paddingRight: "64px",
+  };
+
   const dateInputWrapperStyle = {
     position: "relative",
     width: "100%",
-    backgroundColor: "#fff",
-    border: "1px solid #7ec8e3",
-    borderRadius: "6px",
-    boxSizing: "border-box",
+    cursor: "pointer",
   };
 
-  const dateDisplayStyle = {
-    padding: "10px 12px",
-    fontSize: "14px",
-    textTransform: "uppercase",
-    color: notificationDate ? "#333" : "#9aa3ad",
-    userSelect: "none",
-  };
-
-  const dateInputHiddenStyle = {
+  const datePickerButtonStyle = {
     position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    opacity: 0,
+    top: "50%",
+    right: "10px",
+    transform: "translateY(-50%)",
+    padding: "4px 8px",
+    borderRadius: "6px",
+    border: "1px solid #7ec8e3",
+    backgroundColor: "white",
+    color: "#2a5298",
+    fontSize: "11px",
+    fontWeight: "700",
     cursor: "pointer",
   };
 
@@ -543,23 +543,37 @@ function NotificationsPage({ apiBase, authHeaders, auth, unreadCount = 0, refres
               <option value="event">Event</option>
             </select>
 
-            <label style={formLabelStyle}>Notification Date (For Calendar) (Optional)</label>
-            <div style={dateInputWrapperStyle}>
-              <div style={dateDisplayStyle}>
-                {notificationDate
-                  ? (() => {
-                      const [year, month, day] = notificationDate.split("-");
-                      return `${day}-${month}-${year}`;
-                    })()
-                  : "DD-MM-YYYY"}
-              </div>
+            <label style={formLabelStyle}>Notification Date *</label>
+            <div
+              style={dateInputWrapperStyle}
+              onClick={() => {
+                if (!dateInputRef.current) return;
+                dateInputRef.current.focus();
+                try {
+                  if (dateInputRef.current.showPicker) {
+                    dateInputRef.current.showPicker();
+                  }
+                } catch (err) {
+                  // Ignore browsers that block programmatic picker calls.
+                }
+              }}
+            >
               <input
+                ref={dateInputRef}
                 type="date"
                 value={notificationDate}
                 onChange={(e) => setNotificationDate(e.target.value)}
-                style={dateInputHiddenStyle}
+                style={dateInputStyle}
                 aria-label="Notification date"
+                required
               />
+              <button
+                type="button"
+                style={datePickerButtonStyle}
+                onClick={() => dateInputRef.current && dateInputRef.current.focus()}
+              >
+                CAL
+              </button>
             </div>
 
             <label style={formLabelStyle}>Attachment URL (Optional)</label>
