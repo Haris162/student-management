@@ -1,3 +1,14 @@
+/**
+ * Student Form Component
+ * 
+ * Form for adding new students with:
+ * - Personal information fields (name, age, class, section)
+ * - Family information (father/mother names, occupation, income)
+ * - Address fields (lines, city, state, postal code, country)
+ * - Real-time validation with inline error messages
+ * - Styled inputs with hover and focus effects
+ */
+
 import React, { useState } from "react";
 
 function StudentForm({ onAddStudent }) {

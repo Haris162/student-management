@@ -1,25 +1,43 @@
-import React, { useState, useEffect } from "react";
+/**
+ * Notifications Page Component
+ * 
+ * Public-facing notifications display and management:
+ * - List all active notifications sorted by date
+ * - Create/Edit/Delete (admin/principal only)
+ * - Type-based color coding (urgent, holiday, event, general)
+ * - Optional attachments with URLs
+ * - Calendar date assignment for events/holidays
+ * - Rich metadata: creator name, role, timestamp
+ */
 
-function NotificationsPage({ apiBase, authHeaders, auth }) {
+import React, { useState, useEffect, useRef } from "react";
+
+function NotificationsPage({ apiBase, authHeaders, auth, unreadCount = 0, refreshUnreadCount }) {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [type, setType] = useState("general");
+  const [notificationDate, setNotificationDate] = useState(""); // Add date state
   const [attachmentUrl, setAttachmentUrl] = useState("");
   const [attachmentName, setAttachmentName] = useState("");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [editingId, setEditingId] = useState(null);
+  const [selectedNotification, setSelectedNotification] = useState(null);
+  const justOpenedRef = useRef(false);
 
   const canCreate = auth?.user?.role === 'admin' || auth?.user?.role === 'principal';
 
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    if (authHeaders?.Authorization) {
+      fetchNotifications();
+    }
+  }, [authHeaders]);
 
   const fetchNotifications = () => {
+    if (!authHeaders?.Authorization) return;
     setIsLoading(true);
     fetch(`${apiBase}/notifications`, { headers: { ...authHeaders } })
       .then(res => {
@@ -48,6 +66,7 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
       title,
       message,
       type,
+      notificationDate: notificationDate ? new Date(notificationDate).toISOString() : null, // Send date in ISO format
       attachmentUrl: attachmentUrl.trim() || undefined,
       attachmentName: attachmentName.trim() || undefined,
     };
@@ -66,14 +85,19 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
       },
       body: JSON.stringify(notificationData),
     })
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to save notification');
+      .then(async res => {
+        if (!res.ok) {
+          const message = await res.text();
+          const statusInfo = `${res.status} ${res.statusText}`.trim();
+          throw new Error(message || statusInfo || 'Failed to save notification');
+        }
         return res.json();
       })
       .then(() => {
         setSuccessMessage(editingId ? 'Notification updated successfully!' : 'Notification created successfully!');
         resetForm();
         fetchNotifications();
+        if (refreshUnreadCount) refreshUnreadCount();
       })
       .catch(err => setError(err.message || 'Failed to save notification'))
       .finally(() => setIsLoading(false));
@@ -84,6 +108,13 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
     setTitle(notification.title);
     setMessage(notification.message);
     setType(notification.type);
+    // Format date for input field if it exists
+    if (notification.notificationDate) {
+      const date = new Date(notification.notificationDate);
+      setNotificationDate(date.toISOString().split('T')[0]); // YYYY-MM-DD format
+    } else {
+      setNotificationDate("");
+    }
     setAttachmentUrl(notification.attachmentUrl || "");
     setAttachmentName(notification.attachmentName || "");
     setShowForm(true);
@@ -105,15 +136,27 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
       .then(() => {
         setSuccessMessage('Notification deleted successfully!');
         fetchNotifications();
+        if (refreshUnreadCount) refreshUnreadCount();
       })
       .catch(err => setError(err.message || 'Failed to delete notification'))
       .finally(() => setIsLoading(false));
+  };
+
+  const markNotificationRead = (notificationId) => {
+    if (!authHeaders?.Authorization) return;
+    fetch(`${apiBase}/notifications/${notificationId}/read`, {
+      method: 'POST',
+      headers: { ...authHeaders },
+    })
+      .then(() => refreshUnreadCount && refreshUnreadCount())
+      .catch(() => {});
   };
 
   const resetForm = () => {
     setTitle("");
     setMessage("");
     setType("general");
+    setNotificationDate(""); // Reset date
     setAttachmentUrl("");
     setAttachmentName("");
     setEditingId(null);
@@ -139,6 +182,21 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
     fontWeight: "700",
     color: "#1e3c72",
     margin: 0,
+  };
+
+  const countBadgeStyle = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "22px",
+    height: "22px",
+    padding: "0 6px",
+    marginLeft: "10px",
+    borderRadius: "11px",
+    backgroundColor: "#e74c3c",
+    color: "white",
+    fontSize: "12px",
+    fontWeight: "700",
   };
 
   const buttonStyle = {
@@ -180,6 +238,33 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
     border: "1px solid #7ec8e3",
     fontSize: "14px",
     boxSizing: "border-box",
+  };
+
+  const dateInputWrapperStyle = {
+    position: "relative",
+    width: "100%",
+    backgroundColor: "#fff",
+    border: "1px solid #7ec8e3",
+    borderRadius: "6px",
+    boxSizing: "border-box",
+  };
+
+  const dateDisplayStyle = {
+    padding: "10px 12px",
+    fontSize: "14px",
+    textTransform: "uppercase",
+    color: notificationDate ? "#333" : "#9aa3ad",
+    userSelect: "none",
+  };
+
+  const dateInputHiddenStyle = {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    opacity: 0,
+    cursor: "pointer",
   };
 
   const textareaStyle = {
@@ -234,10 +319,21 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
     margin: "0 0 8px 0",
   };
 
+  const unreadBorderStyle = {
+    borderRight: "4px solid #e74c3c",
+  };
+
   const notificationMetaStyle = {
     fontSize: "12px",
     color: "#7f8c8d",
     marginBottom: "12px",
+  };
+
+  const notificationDateStyle = {
+    fontSize: "12px",
+    color: "#2a5298",
+    fontWeight: "600",
+    marginTop: "4px",
   };
 
   const notificationMessageStyle = {
@@ -280,6 +376,7 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
     cursor: "pointer",
   };
 
+
   const deleteButtonStyle = {
     padding: "6px 14px",
     borderRadius: "6px",
@@ -306,10 +403,94 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
     fontSize: "13px",
   };
 
+  const modalOverlayStyle = {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2000,
+  };
+
+  const modalContentStyle = {
+    backgroundColor: "white",
+    borderRadius: "12px",
+    padding: "24px",
+    width: "90%",
+    maxWidth: "620px",
+    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.2)",
+  };
+
+  const modalHeaderStyle = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "12px",
+  };
+
+  const modalTitleStyle = {
+    fontSize: "20px",
+    fontWeight: "700",
+    color: "#1e3c72",
+    margin: 0,
+  };
+
+  const closeButtonStyle = {
+    border: "none",
+    backgroundColor: "#95a5a6",
+    color: "white",
+    padding: "6px 12px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontWeight: "700",
+  };
+
+  const formatNotificationDate = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleDateString();
+  };
+
+  const openNotification = (notification) => {
+    setSelectedNotification(notification);
+    justOpenedRef.current = true;
+    setTimeout(() => {
+      justOpenedRef.current = false;
+    }, 0);
+  };
+
+  const closeNotification = () => {
+    if (selectedNotification?._id) {
+      markNotificationRead(selectedNotification._id);
+    }
+    setSelectedNotification(null);
+  };
+
+  const handleNotificationCardClick = (event, notification) => {
+    const tagName = event.target?.tagName;
+    if (tagName === "A" || tagName === "BUTTON") return;
+    event.preventDefault();
+    event.stopPropagation();
+    openNotification(notification);
+  };
+
+
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>
-        <h1 style={titleStyle}>📢 School Notifications</h1>
+        <h1 style={titleStyle}>
+          📢 School Notifications
+          {unreadCount > 0 && (
+            <span style={countBadgeStyle}>
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+        </h1>
         {canCreate && !showForm && (
           <button
             style={buttonStyle}
@@ -362,6 +543,25 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
               <option value="event">Event</option>
             </select>
 
+            <label style={formLabelStyle}>Notification Date (For Calendar) (Optional)</label>
+            <div style={dateInputWrapperStyle}>
+              <div style={dateDisplayStyle}>
+                {notificationDate
+                  ? (() => {
+                      const [year, month, day] = notificationDate.split("-");
+                      return `${day}-${month}-${year}`;
+                    })()
+                  : "DD-MM-YYYY"}
+              </div>
+              <input
+                type="date"
+                value={notificationDate}
+                onChange={(e) => setNotificationDate(e.target.value)}
+                style={dateInputHiddenStyle}
+                aria-label="Notification date"
+              />
+            </div>
+
             <label style={formLabelStyle}>Attachment URL (Optional)</label>
             <input
               type="url"
@@ -404,6 +604,58 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
         </div>
       )}
 
+      {selectedNotification && (
+        <div
+          style={modalOverlayStyle}
+          onClick={() => {
+            if (justOpenedRef.current) return;
+            closeNotification();
+          }}
+        >
+          <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
+            <div style={modalHeaderStyle}>
+              <h3 style={modalTitleStyle}>{selectedNotification.title}</h3>
+              <button
+                type="button"
+                style={closeButtonStyle}
+                onClick={closeNotification}
+              >
+                Close
+              </button>
+            </div>
+            <div style={{ marginBottom: "8px" }}>
+              <span style={typeBadgeStyle(selectedNotification.type)}>
+                {selectedNotification.type}
+              </span>
+            </div>
+            <div style={notificationMetaStyle}>
+              Posted by {selectedNotification.createdByName} ({selectedNotification.createdByRole}) • {new Date(selectedNotification.createdAt).toLocaleDateString()} at {new Date(selectedNotification.createdAt).toLocaleTimeString()}
+            </div>
+            {formatNotificationDate(selectedNotification.notificationDate) && (
+              <div style={notificationDateStyle}>
+                Event Date: {formatNotificationDate(selectedNotification.notificationDate)}
+              </div>
+            )}
+            <div style={{ marginTop: "12px", color: "#333", lineHeight: "1.6" }}>
+              {selectedNotification.message}
+            </div>
+            {selectedNotification.attachmentUrl && (
+              <div style={attachmentStyle}>
+                <span style={{ fontSize: "12px", color: "#666", marginRight: "10px" }}>📎 Attachment:</span>
+                <a
+                  href={selectedNotification.attachmentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={attachmentLinkStyle}
+                >
+                  {selectedNotification.attachmentName || selectedNotification.attachmentUrl}
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {isLoading && notifications.length === 0 ? (
         <div style={{ textAlign: "center", padding: "40px", color: "#5c6c86" }}>
           Loading notifications...
@@ -421,7 +673,14 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
       ) : (
         <div>
           {notifications.map((notification) => (
-            <div key={notification._id} style={notificationCardStyle}>
+            <div
+              key={notification._id}
+              style={{
+                ...notificationCardStyle,
+                ...(notification.isRead ? {} : unreadBorderStyle),
+              }}
+              onClick={(e) => handleNotificationCardClick(e, notification)}
+            >
               <div style={notificationHeaderStyle}>
                 <div style={{ flex: 1 }}>
                   <div style={notificationTitleStyle}>
@@ -431,11 +690,18 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
                   <div style={notificationMetaStyle}>
                     Posted by {notification.createdByName} ({notification.createdByRole}) • {new Date(notification.createdAt).toLocaleDateString()} at {new Date(notification.createdAt).toLocaleTimeString()}
                   </div>
+                  {formatNotificationDate(notification.notificationDate) && (
+                    <div style={notificationDateStyle}>
+                      Event Date: {formatNotificationDate(notification.notificationDate)}
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div style={notificationMessageStyle}>
-                {notification.message}
+                {notification.message.length > 140
+                  ? `${notification.message.slice(0, 140)}...`
+                  : notification.message}
               </div>
 
               {notification.attachmentUrl && (
@@ -455,13 +721,19 @@ function NotificationsPage({ apiBase, authHeaders, auth }) {
               {canCreate && (
                 <div style={actionButtonsStyle}>
                   <button
-                    onClick={() => handleEdit(notification)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit(notification);
+                    }}
                     style={editButtonStyle}
                   >
                     ✏️ Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(notification._id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(notification._id);
+                    }}
                     style={deleteButtonStyle}
                   >
                     🗑️ Delete

@@ -1,3 +1,14 @@
+/**
+ * Student List Component
+ * 
+ * Displays student records in a filterable table with:
+ * - Search by name functionality
+ * - Filter by class dropdown
+ * - Bulk select and delete operations
+ * - Individual view and delete actions
+ * - Row hover effects and responsive design
+ */
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 

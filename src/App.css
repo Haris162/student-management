@@ -1,3 +1,23 @@
+/**
+ * App Component Styles
+ * 
+ * Contains:
+ * - Basic App component centering and layout
+ * - Logo animation (spinning React logo)
+ * - Header styles for default React template
+ * - Link color theming
+ */
+
+/**
+ * App Component Styles
+ * 
+ * Contains:
+ * - Basic App component centering and layout
+ * - Logo animation (spinning React logo)
+ * - Header styles for default React template
+ * - Link color theming
+ */
+
 .App {
   text-align: center;
 }

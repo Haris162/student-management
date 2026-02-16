@@ -1,3 +1,10 @@
+/**
+ * Add Student Page Component
+ * 
+ * Wrapper page that renders the StudentForm component
+ * with centered layout and descriptive title.
+ */
+
 import React from "react";
 import StudentForm from "../Components/StudentForm";
 

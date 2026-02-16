@@ -1,8 +1,22 @@
-import React, { useState, useEffect } from "react";
+/**
+ * Account Page Component
+ * 
+ * User account management with tabbed interface:
+ * - Personal Info: View/edit profile details
+ * - Change Password: Secure password update
+ * - Requests (Principal only): Approve/reject user creation
+ * - Notifications: Create/edit/delete system notifications
+ * Includes sidebar navigation and role-based access
+ */
+
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 
-function AccountPage({ apiBase, authHeaders, auth }) {
-  const [activeTab, setActiveTab] = useState("personal-info");
+function AccountPage({ apiBase, authHeaders, auth, unreadCount = 0, refreshUnreadCount }) {
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = localStorage.getItem("sms_account_tab");
+    return saved || "personal-info";
+  });
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -24,6 +38,8 @@ function AccountPage({ apiBase, authHeaders, auth }) {
   const [attachmentUrl, setAttachmentUrl] = useState("");
   const [attachmentName, setAttachmentName] = useState("");
   const [editingNotificationId, setEditingNotificationId] = useState(null);
+  const [selectedNotification, setSelectedNotification] = useState(null);
+  const justOpenedRef = useRef(false);
 
   const isPrincipal = auth?.user?.role === 'principal';
   const isAdmin = auth?.user?.role === 'admin';
@@ -36,7 +52,11 @@ function AccountPage({ apiBase, authHeaders, auth }) {
     if (activeTab === 'notifications') {
       fetchNotifications();
     }
-  }, [isPrincipal, activeTab]);
+  }, [isPrincipal, activeTab, authHeaders]);
+
+  useEffect(() => {
+    localStorage.setItem("sms_account_tab", activeTab);
+  }, [activeTab]);
 
   const fetchUserRequests = () => {
     setLoadingRequests(true);
@@ -140,6 +160,21 @@ function AccountPage({ apiBase, authHeaders, auth }) {
     gap: "12px",
   });
 
+  const navBadgeStyle = {
+    marginLeft: "auto",
+    minWidth: "20px",
+    height: "20px",
+    padding: "0 6px",
+    borderRadius: "10px",
+    backgroundColor: "#e74c3c",
+    color: "white",
+    fontSize: "11px",
+    fontWeight: "700",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
+
   const cardStyle = {
     backgroundColor: "white",
     border: "1px solid rgba(42, 82, 152, 0.12)",
@@ -160,6 +195,71 @@ function AccountPage({ apiBase, authHeaders, auth }) {
     margin: "0 0 25px 0",
     fontSize: "14px",
     color: "#5c6c86",
+  };
+
+  const countBadgeStyle = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "22px",
+    height: "22px",
+    padding: "0 6px",
+    marginLeft: "10px",
+    borderRadius: "11px",
+    backgroundColor: "#e74c3c",
+    color: "white",
+    fontSize: "12px",
+    fontWeight: "700",
+  };
+
+  const unreadBorderStyle = {
+    borderRight: "4px solid #e74c3c",
+  };
+
+  const modalOverlayStyle = {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2000,
+  };
+
+  const modalContentStyle = {
+    backgroundColor: "white",
+    borderRadius: "12px",
+    padding: "24px",
+    width: "90%",
+    maxWidth: "620px",
+    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.2)",
+  };
+
+  const modalHeaderStyle = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "12px",
+  };
+
+  const modalTitleStyle = {
+    fontSize: "20px",
+    fontWeight: "700",
+    color: "#1e3c72",
+    margin: 0,
+  };
+
+  const closeButtonStyle = {
+    border: "none",
+    backgroundColor: "#95a5a6",
+    color: "white",
+    padding: "6px 12px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontWeight: "700",
   };
 
   const labelStyle = {
@@ -352,14 +452,18 @@ function AccountPage({ apiBase, authHeaders, auth }) {
   const fetchNotifications = () => {
     setIsLoading(true);
     fetch(`${apiBase}/notifications`, { headers: { ...authHeaders } })
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch notifications');
+      .then(async res => {
+        if (!res.ok) {
+          const message = await res.text();
+          const statusInfo = `${res.status} ${res.statusText}`.trim();
+          throw new Error(message || statusInfo || 'Failed to fetch notifications');
+        }
         return res.json();
       })
       .then(data => setNotifications(data))
       .catch(err => {
         console.error('Error fetching notifications:', err);
-        setError('Failed to load notifications');
+        setError(err.message || 'Failed to load notifications');
       })
       .finally(() => setIsLoading(false));
   };
@@ -406,9 +510,13 @@ function AccountPage({ apiBase, authHeaders, auth }) {
       },
       body: JSON.stringify(notificationData),
     })
-      .then(res => {
+      .then(async res => {
         console.log('Response status:', res.status);
-        if (!res.ok) throw new Error('Failed to save notification');
+        if (!res.ok) {
+          const message = await res.text();
+          const statusInfo = `${res.status} ${res.statusText}`.trim();
+          throw new Error(message || statusInfo || 'Failed to save notification');
+        }
         return res.json();
       })
       .then((data) => {
@@ -416,12 +524,55 @@ function AccountPage({ apiBase, authHeaders, auth }) {
         setMessage(editingNotificationId ? 'Notification updated successfully!' : 'Notification created successfully!');
         resetNotificationForm();
         fetchNotifications();
+        if (refreshUnreadCount) refreshUnreadCount();
       })
       .catch(err => {
         console.error('Error saving notification:', err);
         setError(err.message || 'Failed to save notification');
       })
       .finally(() => setIsLoading(false));
+  };
+
+  const markNotificationRead = (notificationId) => {
+    if (!authHeaders?.Authorization) return;
+    fetch(`${apiBase}/notifications/${notificationId}/read`, {
+      method: 'POST',
+      headers: { ...authHeaders },
+    })
+      .then(() => refreshUnreadCount && refreshUnreadCount())
+      .catch(() => {});
+  };
+
+  const openNotification = (notification) => {
+    setActiveTab("notifications");
+    setSelectedNotification(notification);
+    justOpenedRef.current = true;
+    setTimeout(() => {
+      justOpenedRef.current = false;
+    }, 0);
+  };
+
+  const closeNotification = () => {
+    if (selectedNotification?._id) {
+      markNotificationRead(selectedNotification._id);
+    }
+    setSelectedNotification(null);
+  };
+
+  const handleNotificationCardClick = (event, notification) => {
+    const tagName = event.target?.tagName;
+    if (tagName === "A" || tagName === "BUTTON") return;
+    event.preventDefault();
+    event.stopPropagation();
+    openNotification(notification);
+  };
+
+
+  const formatNotificationDate = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleDateString();
   };
 
   const handleEditNotification = (notification) => {
@@ -450,6 +601,7 @@ function AccountPage({ apiBase, authHeaders, auth }) {
       .then(() => {
         setMessage('Notification deleted successfully!');
         fetchNotifications();
+        if (refreshUnreadCount) refreshUnreadCount();
       })
       .catch(err => setError(err.message || 'Failed to delete notification'))
       .finally(() => setIsLoading(false));
@@ -482,14 +634,6 @@ function AccountPage({ apiBase, authHeaders, auth }) {
                   <div style={infoRowStyle}>
                     <div style={infoLabelStyle}>Name</div>
                     <div style={infoValueStyle}>{auth?.user?.name || "Administrator"}</div>
-                  </div>
-                  <div style={infoRowStyle}>
-                    <div style={infoLabelStyle}>Email</div>
-                    <div style={infoValueStyle}>{auth?.user?.email || "admin@school.com"}</div>
-                  </div>
-                  <div style={infoRowStyle}>
-                    <div style={infoLabelStyle}>Personal Email</div>
-                    <div style={infoValueStyle}>{auth?.user?.personalEmail || "Not set"}</div>
                   </div>
                   <div style={infoRowStyle}>
                     <div style={infoLabelStyle}>Phone Number</div>
@@ -613,9 +757,80 @@ function AccountPage({ apiBase, authHeaders, auth }) {
       case "notifications":
         return (
           <div>
+            {selectedNotification && (
+              <div
+                style={modalOverlayStyle}
+                onClick={() => {
+                  if (justOpenedRef.current) return;
+                  closeNotification();
+                }}
+              >
+                <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
+                  <div style={modalHeaderStyle}>
+                    <h3 style={modalTitleStyle}>{selectedNotification.title}</h3>
+                    <button
+                      type="button"
+                      style={closeButtonStyle}
+                      onClick={closeNotification}
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <div style={{ marginBottom: "8px" }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '4px 10px',
+                      borderRadius: '12px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      backgroundColor:
+                        selectedNotification.type === 'urgent' ? '#e74c3c' :
+                        selectedNotification.type === 'holiday' ? '#27ae60' :
+                        selectedNotification.type === 'event' ? '#f39c12' :
+                        '#3498db',
+                      color: 'white',
+                    }}>
+                      {selectedNotification.type}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#7f8c8d', marginBottom: '8px' }}>
+                    Posted by {selectedNotification.createdByName} ({selectedNotification.createdByRole}) • {new Date(selectedNotification.createdAt).toLocaleDateString()} at {new Date(selectedNotification.createdAt).toLocaleTimeString()}
+                  </div>
+                  {formatNotificationDate(selectedNotification.notificationDate) && (
+                    <div style={{ fontSize: '12px', color: '#2a5298', fontWeight: '600', marginBottom: '8px' }}>
+                      Event Date: {formatNotificationDate(selectedNotification.notificationDate)}
+                    </div>
+                  )}
+                  <div style={{ color: '#333', lineHeight: '1.6' }}>
+                    {selectedNotification.message}
+                  </div>
+                  {selectedNotification.attachmentUrl && (
+                    <div style={{ marginTop: '12px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '6px', border: '1px solid #dee2e6' }}>
+                      <span style={{ fontSize: '12px', color: '#666', marginRight: '10px' }}>📎 Attachment:</span>
+                      <a
+                        href={selectedNotification.attachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#2a5298', textDecoration: 'none', fontWeight: '600', fontSize: '13px' }}
+                      >
+                        {selectedNotification.attachmentName || selectedNotification.attachmentUrl}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
               <div>
-                <h1 style={titleStyle}>📢 School Notifications</h1>
+                <h1 style={titleStyle}>
+                  📢 School Notifications
+                  {unreadCount > 0 && (
+                    <span style={countBadgeStyle}>
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </h1>
                 <p style={subtitleStyle}>View and manage school-wide announcements</p>
               </div>
               {canCreateNotification && !showNotificationForm && (
@@ -742,10 +957,18 @@ function AccountPage({ apiBase, authHeaders, auth }) {
             ) : (
               <div>
                 {notifications.map((notification) => (
-                  <div key={notification._id} style={cardStyle}>
+                  <div
+                    key={notification._id}
+                    style={{
+                      ...cardStyle,
+                      position: 'relative',
+                      ...(notification.isRead ? {} : unreadBorderStyle),
+                    }}
+                    onClick={(e) => handleNotificationCardClick(e, notification)}
+                  >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e3c72', margin: '0 0 8px 0' }}>
+                        <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e3c72', margin: '0 0 8px 0', display: 'flex', alignItems: 'center' }}>
                           <span style={{
                             display: 'inline-block',
                             padding: '4px 10px',
@@ -768,11 +991,18 @@ function AccountPage({ apiBase, authHeaders, auth }) {
                         <div style={{ fontSize: '12px', color: '#7f8c8d', marginBottom: '12px' }}>
                           Posted by {notification.createdByName} ({notification.createdByRole}) • {new Date(notification.createdAt).toLocaleDateString()} at {new Date(notification.createdAt).toLocaleTimeString()}
                         </div>
+                        {formatNotificationDate(notification.notificationDate) && (
+                          <div style={{ fontSize: '12px', color: '#2a5298', fontWeight: '600', marginBottom: '8px' }}>
+                            Event Date: {formatNotificationDate(notification.notificationDate)}
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     <div style={{ fontSize: '14px', color: '#333', lineHeight: '1.6', marginBottom: '12px' }}>
-                      {notification.message}
+                      {notification.message.length > 140
+                        ? `${notification.message.slice(0, 140)}...`
+                        : notification.message}
                     </div>
 
                     {notification.attachmentUrl && (
@@ -798,7 +1028,10 @@ function AccountPage({ apiBase, authHeaders, auth }) {
                     {canCreateNotification && (
                       <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
                         <button
-                          onClick={() => handleEditNotification(notification)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditNotification(notification);
+                          }}
                           style={{
                             padding: '6px 14px',
                             borderRadius: '6px',
@@ -813,7 +1046,10 @@ function AccountPage({ apiBase, authHeaders, auth }) {
                           ✏️ Edit
                         </button>
                         <button
-                          onClick={() => handleDeleteNotification(notification._id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteNotification(notification._id);
+                          }}
                           style={{
                             padding: '6px 14px',
                             borderRadius: '6px',
@@ -1018,24 +1254,6 @@ function AccountPage({ apiBase, authHeaders, auth }) {
         >
           <span>🔑</span>
           <span>Change Password</span>
-        </div>
-
-        <div
-          style={navItemStyle(activeTab === "notifications")}
-          onClick={() => setActiveTab("notifications")}
-          onMouseOver={(e) => {
-            if (activeTab !== "notifications") {
-              e.currentTarget.style.backgroundColor = "rgba(42, 82, 152, 0.04)";
-            }
-          }}
-          onMouseOut={(e) => {
-            if (activeTab !== "notifications") {
-              e.currentTarget.style.backgroundColor = "transparent";
-            }
-          }}
-        >
-          <span>🔔</span>
-          <span>Notifications</span>
         </div>
 
         <div

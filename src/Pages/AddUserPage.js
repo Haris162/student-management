@@ -1,3 +1,14 @@
+/**
+ * Add User Page Component
+ * 
+ * Creates new user accounts (requires principal approval):
+ * - Form for user details (name, email, password, role)
+ * - Role selection: lecturer, principal, admin
+ * - OTP verification for principal role creation
+ * - All requests go to principal for approval
+ * - Displays success message post-submission
+ */
+
 import React, { useState } from "react";
 
 function AddUserPage({ apiBase, authHeaders, auth }) {

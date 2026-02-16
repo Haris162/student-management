@@ -1,3 +1,13 @@
+/**
+ * Search Results Page Component
+ * 
+ * Displays filtered student search results:
+ * - Extracts search query from URL parameters
+ * - Searches across name, class, section, roll number
+ * - Shows result count and "no results" message
+ * - Reuses StudentList component for display
+ */
+
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import StudentList from "../Components/StudentList";

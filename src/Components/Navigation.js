@@ -1,7 +1,17 @@
+/**
+ * Navigation Component
+ * 
+ * Fixed top navigation bar providing:
+ * - Student search with autocomplete suggestions
+ * - User profile dropdown with account management
+ * - Responsive design with gradient blue theme
+ * - Role-based menu items
+ */
+
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-function Navigation({ students = [], onLogout, auth }) {
+function Navigation({ students = [], onLogout, auth, notificationCount = 0 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -82,6 +92,60 @@ function Navigation({ students = [], onLogout, auth }) {
     fontWeight: "700",
     color: "white",
     transition: "all 0.3s ease",
+  };
+
+  const profileButtonWrapperStyle = {
+    position: "relative",
+  };
+
+  const notificationsButtonStyle = {
+    width: "40px",
+    height: "40px",
+    borderRadius: "0",
+    backgroundColor: "transparent",
+    border: "none",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "20px",
+    fontWeight: "700",
+    color: "white",
+    transition: "all 0.3s ease",
+  };
+
+
+  const notificationsWrapperStyle = {
+    position: "relative",
+    marginRight: "8px",
+    display: "flex",
+    alignItems: "center",
+    transform: "translateY(-6px)",
+    cursor: "pointer",
+  };
+
+  const bellIconStyle = {
+    transform: "translateY(-1px)",
+    pointerEvents: "none",
+  };
+
+  const notificationBadgeStyle = {
+    position: "absolute",
+    top: "-4px",
+    right: "-4px",
+    minWidth: "18px",
+    height: "18px",
+    padding: "0 5px",
+    borderRadius: "9px",
+    backgroundColor: "#e74c3c",
+    color: "white",
+    fontSize: "11px",
+    fontWeight: "700",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "2px solid white",
+    pointerEvents: "none",
   };
 
   const profileMenuStyle = {
@@ -243,14 +307,31 @@ function Navigation({ students = [], onLogout, auth }) {
         </form>
       </div>
 
-      <div style={profileContainerStyle}>
-        <div
-          style={profileButtonStyle}
-          onClick={() => setShowProfileMenu(!showProfileMenu)}
-          onMouseOver={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.3)"}
-          onMouseOut={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.2)"}
-        >
-          {auth?.user?.name?.charAt(0).toUpperCase() || "U"}
+      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={notificationsWrapperStyle} onClick={() => navigate("/notifications")}>
+          <button
+            type="button"
+            style={notificationsButtonStyle}
+            aria-label="Notifications"
+          >
+            <span aria-hidden="true" style={bellIconStyle}>🔔︎</span>
+          </button>
+          {notificationCount > 0 && (
+            <div style={notificationBadgeStyle}>
+              {notificationCount > 99 ? "99+" : notificationCount}
+            </div>
+          )}
+        </div>
+        <div style={profileContainerStyle}>
+        <div style={profileButtonWrapperStyle}>
+          <div
+            style={profileButtonStyle}
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.3)"}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.2)"}
+          >
+            {auth?.user?.name?.charAt(0).toUpperCase() || "U"}
+          </div>
         </div>
         <span style={adminLabelStyle}>
           {auth?.user?.role ? auth.user.role.charAt(0).toUpperCase() + auth.user.role.slice(1) : "User"}
@@ -317,6 +398,7 @@ function Navigation({ students = [], onLogout, auth }) {
             )}
           </div>
         )}
+        </div>
       </div>
     </nav>
   );

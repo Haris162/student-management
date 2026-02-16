@@ -1,9 +1,21 @@
+/**
+ * Main entry point for the React application
+ * 
+ * This file:
+ * - Imports core React dependencies
+ * - Creates the root React DOM element
+ * - Renders the App component into the DOM
+ * - Enables React StrictMode for development warnings
+ * - Initializes web vitals reporting
+ */
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './index.css';
-import App from './App';
-import reportWebVitals from './reportWebVitals';
+import './index.css'; // Global styles
+import App from './App'; // Main App component
+import reportWebVitals from './reportWebVitals'; // Performance monitoring
 
+// Create React root and render the app
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>

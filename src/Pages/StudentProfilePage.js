@@ -1,3 +1,17 @@
+/**
+ * Student Profile Page Component
+ * 
+ * Detailed individual student view with comprehensive features:
+ * - Left sidebar: Photo upload, basic info display
+ * - Tabbed interface: Profile tab and Exam Results tab
+ * - Edit mode for updating student information
+ * - Photo upload with base64 encoding
+ * - PDF exam report generation with charts
+ * - Subject-wise marks display across all exams
+ * - Progress tracking with line, bar, and pie charts
+ * - Downloadable PDF reports using jsPDF and Chart.js
+ */
+
 import React, { useState } from "react";
 import { jsPDF } from "jspdf";
 import Chart from "chart.js/auto";

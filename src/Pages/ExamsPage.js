@@ -1,3 +1,15 @@
+/**
+ * Exams Page Component
+ * 
+ * Interface for managing exam marks:
+ * - Grid view of all available exams
+ * - Select exam to enter/edit marks
+ * - Table with all students and subjects
+ * - Auto-calculates totals and pass/fail grades
+ * - Different max marks: 25 for unit tests, 100 for assessments
+ * - Color-codes failed subjects in red
+ */
+
 import React, { useState } from "react";
 
 function ExamsPage({ students, exams, onUpdateExamMarks }) {

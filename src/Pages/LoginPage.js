@@ -1,3 +1,13 @@
+/**
+ * Login Page Component
+ * 
+ * User authentication interface with:
+ * - Split-screen design (school image left, login form right)
+ * - Email and password authentication
+ * - Loading state and error handling
+ * - Redirects to home page on successful login
+ */
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -57,7 +67,34 @@ function LoginPage({ apiBase, onLogin }) {
     fontSize: "22px",
     color: "#1e3c72",
     fontWeight: "700",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
   };
+
+  const logoStyle = {
+    width: "36px",
+    height: "36px",
+    objectFit: "contain",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "28px",
+  };
+
+  const schoolIcon = (
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="12" width="28" height="18" fill="#2a5298" stroke="#1e3c72" strokeWidth="1.5" rx="2"/>
+      <path d="M18 4L8 12H28L18 4Z" fill="#f39c12" stroke="#1e3c72" strokeWidth="1.5"/>
+      <circle cx="12" cy="16" r="1.5" fill="white"/>
+      <circle cx="18" cy="16" r="1.5" fill="white"/>
+      <circle cx="24" cy="16" r="1.5" fill="white"/>
+      <circle cx="12" cy="22" r="1.5" fill="white"/>
+      <circle cx="18" cy="22" r="1.5" fill="white"/>
+      <circle cx="24" cy="22" r="1.5" fill="white"/>
+      <rect x="15" y="26" width="6" height="4" fill="#8B4513" stroke="#1e3c72" strokeWidth="1"/>
+    </svg>
+  );
 
   const subtitleStyle = {
     margin: "0 0 18px 0",
@@ -139,7 +176,12 @@ function LoginPage({ apiBase, onLogin }) {
 
       <div style={rightPanelStyle}>
         <div style={cardStyle}>
-          <h1 style={titleStyle}>Login</h1>
+          <h1 style={titleStyle}>
+            <div style={logoStyle}>
+              {schoolIcon}
+            </div>
+            Student Management System
+          </h1>
           <p style={subtitleStyle}>Sign in to access the dashboard.</p>
           <form onSubmit={handleSubmit}>
             <div style={labelStyle}>Email</div>

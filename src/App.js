@@ -1,6 +1,13 @@
+/**
+ * Student Management System - Main Application Component
+ * 
+ * Handles routing, global state management, API communication, and authentication.
+ * Manages students, exams, and provides Excel export functionality.
+ */
+
 import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx"; // Excel export library
 import Navigation from "./Components/Navigation";
 import HomePage from "./Pages/HomePage";
 import AddStudentPage from "./Pages/AddStudentPage";
@@ -11,6 +18,7 @@ import ExamsPage from "./Pages/ExamsPage";
 import LoginPage from "./Pages/LoginPage";
 import AccountPage from "./Pages/AccountPage";
 import AddUserPage from "./Pages/AddUserPage";
+import NotificationsPage from "./Pages/NotificationsPage";
 
 function App() {
   const apiBase = `http://${window.location.hostname}:5000`;
@@ -55,33 +63,68 @@ function App() {
 
   const [students, setStudents] = useState([]);
   const [exams, setExams] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [auth, setAuth] = useState(() => {
     const raw = localStorage.getItem("sms_auth");
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (err) {
+      localStorage.removeItem("sms_auth");
+      return null;
+    }
   });
 
+  // Authentication state and headers
   const token = auth?.token;
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
+  const refreshUnreadCount = () => {
+    if (!token) {
+      setUnreadCount(0);
+      return Promise.resolve();
+    }
+    return fetch(`${apiBase}/notifications/unread-count`, { headers: { ...authHeaders } })
+      .then(res => res.ok ? res.json() : { count: 0 })
+      .then(data => setUnreadCount(data?.count ?? 0))
+      .catch(() => setUnreadCount(0));
+  };
+
+  /**
+   * Saves login data to localStorage and updates auth state
+   * @param {Object} data - Contains token and user information
+   */
   const handleLogin = (data) => {
     localStorage.setItem("sms_auth", JSON.stringify(data));
     setAuth(data);
   };
 
+  /**
+   * Clears authentication data and logs user out
+   */
   const handleLogout = () => {
     localStorage.removeItem("sms_auth");
     setAuth(null);
   };
 
+  /**
+   * Fetches updated student list from API
+   * @returns {Promise} Promise that resolves when students are loaded
+   */
   const refreshStudents = () => {
     return fetch(`${apiBase}/students`, { headers: { ...authHeaders } })
       .then(res => res.json())
       .then(data => setStudents(data));
   };
 
+  // Load students on initial authentication
   React.useEffect(() => {
     if (!token) return;
     refreshStudents();
+  }, [token]);
+
+  React.useEffect(() => {
+    refreshUnreadCount();
   }, [token]);
 
   const normalizeExams = (data) => data.map(exam => ({
@@ -249,7 +292,12 @@ function App() {
       <div style={appStyle}>
         {token && (
           <div style={navContainerStyle}>
-            <Navigation students={students} onLogout={handleLogout} auth={auth} />
+            <Navigation
+              students={students}
+              onLogout={handleLogout}
+              auth={auth}
+              notificationCount={unreadCount}
+            />
           </div>
         )}
         <Routes>
@@ -326,7 +374,27 @@ function App() {
             path="/account"
             element={
               <RequireAuth>
-                <AccountPage apiBase={apiBase} authHeaders={authHeaders} auth={auth} />
+                <AccountPage
+                  apiBase={apiBase}
+                  authHeaders={authHeaders}
+                  auth={auth}
+                  unreadCount={unreadCount}
+                  refreshUnreadCount={refreshUnreadCount}
+                />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <RequireAuth>
+                <NotificationsPage
+                  apiBase={apiBase}
+                  authHeaders={authHeaders}
+                  auth={auth}
+                  unreadCount={unreadCount}
+                  refreshUnreadCount={refreshUnreadCount}
+                />
               </RequireAuth>
             }
           />

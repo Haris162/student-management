@@ -1,3 +1,14 @@
+/**
+ * Change Password Page Component
+ * 
+ * Standalone password change interface:
+ * - Current password verification
+ * - New password with confirmation
+ * - Minimum 6 characters validation
+ * - Match validation for confirmation
+ * - Success/error message display
+ */
+
 import React, { useState } from "react";
 
 function ChangePasswordPage({ apiBase, authHeaders }) {

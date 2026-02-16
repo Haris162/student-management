@@ -1,3 +1,13 @@
+/**
+ * View Students Page Component
+ * 
+ * Main student records page with:
+ * - Print functionality for hard copies
+ * - Export to Excel with class filter option
+ * - StudentList component for displaying records
+ * - Export modal for class selection
+ */
+
 import React, { useState } from "react";
 import StudentList from "../Components/StudentList";
 

@@ -1,3 +1,14 @@
+/**
+ * Home Page / Dashboard Component
+ * 
+ * Main dashboard featuring:
+ * - Interactive calendar with notification dates
+ * - Color-coded notifications by type
+ * - Quick action cards for navigation
+ * - Feature list and welcome message
+ * - Month navigation controls
+ */
+
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
