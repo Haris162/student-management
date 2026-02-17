@@ -17,7 +17,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
   // Styling
   const containerStyle = {
     display: 'flex',
-    minHeight: 'calc(100vh - 120px)',
+    height: 'calc(100vh - 120px)',
     backgroundColor: '#f8f9fa',
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   };
@@ -26,8 +26,9 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
     width: '280px',
     backgroundColor: '#1e3c72',
     padding: '20px',
-    overflowY: 'auto',
+    overflowY: 'hidden',
     boxShadow: '2px 0 4px rgba(0,0,0,0.1)',
+    flexShrink: 0,
   };
 
   const sidebarTitleStyle = {
@@ -56,6 +57,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
     flex: 1,
     padding: '40px',
     overflowY: 'auto',
+    overflowX: 'hidden',
   };
 
   const headerStyle = {
