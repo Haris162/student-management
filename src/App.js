@@ -314,7 +314,11 @@ function App() {
             path="/add-student"
             element={
               <RequireAdmin>
-                <AddStudentPage onAddStudent={addStudent} />
+                <AddStudentPage
+                  onAddStudent={addStudent}
+                  apiBase={apiBase}
+                  authHeaders={authHeaders}
+                />
               </RequireAdmin>
             }
           />

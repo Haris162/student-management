@@ -715,6 +715,102 @@ app.post('/students', requireAuth, asyncHandler(async (req, res) => {
 }));
 
 /**
+ * POST /students/bulk-upload
+ * Bulk import students from CSV data
+ * Expects array of student objects
+ */
+app.post('/students/bulk-upload', requireAuth, asyncHandler(async (req, res) => {
+  const { students } = req.body;
+  
+  if (!Array.isArray(students) || students.length === 0) {
+    return res.status(400).send({ 
+      message: 'Invalid request: students array is required and must not be empty',
+      successCount: 0,
+      details: [] 
+    });
+  }
+
+  const successfulStudents = [];
+  const failedStudents = [];
+
+  // Process each student
+  for (let index = 0; index < students.length; index++) {
+    try {
+      const studentData = students[index];
+      const { name, email, rollNumber, department, phone, address, dateOfBirth, semester } = studentData;
+
+      // Validate required fields
+      if (!name || !email || !rollNumber || !department) {
+        failedStudents.push({
+          index,
+          name: name || 'Unknown',
+          reason: 'Missing required field(s): name, email, rollNumber, or department'
+        });
+        continue;
+      }
+
+      // Check if email already exists
+      const existingStudent = await Student.findOne({ email });
+      if (existingStudent) {
+        failedStudents.push({
+          index,
+          name,
+          reason: `Email already exists: ${email}`
+        });
+        continue;
+      }
+
+      // Check if rollNumber already exists
+      const existingRoll = await Student.findOne({ rollNumber });
+      if (existingRoll) {
+        failedStudents.push({
+          index,
+          name,
+          reason: `Roll number already exists: ${rollNumber}`
+        });
+        continue;
+      }
+
+      // Create new student
+      const newStudent = new Student({
+        name,
+        email,
+        rollNumber,
+        department,
+        phone: phone || '',
+        address: address || '',
+        dateOfBirth: dateOfBirth || null,
+        semester: semester || 1,
+      });
+
+      await newStudent.save();
+      successfulStudents.push({
+        _id: newStudent._id,
+        name,
+        rollNumber,
+        email,
+      });
+    } catch (error) {
+      failedStudents.push({
+        index,
+        name: students[index].name || 'Unknown',
+        reason: error.message
+      });
+    }
+  }
+
+  // Return comprehensive result
+  res.status(201).send({
+    message: `Successfully imported ${successfulStudents.length} of ${students.length} student(s)`,
+    successCount: successfulStudents.length,
+    failedCount: failedStudents.length,
+    successful: successfulStudents,
+    failed: failedStudents,
+    details: failedStudents.map(f => `Row ${f.index + 2}: ${f.name} - ${f.reason}`)
+  });
+}));
+
+/**
  * GET /students
  * Retrieves all students
  */
