@@ -160,6 +160,50 @@ notificationReadSchema.index({ userId: 1, notificationId: 1 }, { unique: true })
 
 const NotificationRead = mongoose.model('NotificationRead', notificationReadSchema);
 
+/**
+ * Import Log Schema Definition
+ * Tracks all data imports through the dataflow system
+ * Used for audit trail, debugging, and monitoring bulk operations
+ */
+const importLogSchema = new mongoose.Schema({
+  importType: { type: String, required: true }, // Type of import: 'students', 'exams', 'marks', etc.
+  fileName: String, // Original file name if uploaded from file
+  totalRecords: { type: Number, required: true }, // Total records in the import
+  successCount: { type: Number, required: true }, // Successfully imported records
+  failedCount: { type: Number, required: true }, // Failed records
+  status: { type: String, enum: ['completed', 'partial', 'failed'], required: true }, // Overall import status
+  importedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // User who initiated import
+  importedByName: String, // Name of user for quick reference
+  importedByEmail: String, // Email of user for quick reference
+  successfulRecords: [
+    {
+      _id: mongoose.Schema.Types.ObjectId,
+      name: String,
+      email: String,
+      rollNumber: String,
+      // Other relevant fields depending on import type
+    },
+  ], // Array of successfully imported records (store minimal info)
+  failedRecords: [
+    {
+      index: Number, // Row number in original file
+      name: String,
+      reason: String, // Reason for failure
+    },
+  ], // Array of failed records with reasons
+  errorSummary: [String], // Summary of all errors
+  createdAt: { type: Date, default: Date.now }, // Import timestamp
+  completedAt: { type: Date }, // Completion timestamp
+  metadata: {
+    // Additional metadata for tracking
+    ipAddress: String,
+    userAgent: String,
+    source: String, // 'csv', 'api', 'manual', etc.
+  },
+});
+
+const ImportLog = mongoose.model('ImportLog', importLogSchema);
+
 // JWT secret key for signing tokens (use environment variable in production)
 const JWT_SECRET = process.env.JWT_SECRET || 'sms_dev_secret';
 
@@ -827,11 +871,47 @@ app.post('/students/bulk-upload', requireAuth, asyncHandler(async (req, res) => 
     }
   }
 
-  // Return comprehensive result
+  // Determine import status
+  let importStatus = 'completed';
+  if (failedStudents.length > 0) {
+    importStatus = successfulStudents.length > 0 ? 'partial' : 'failed';
+  }
+
+  // Create import log entry
+  const importLog = new ImportLog({
+    importType: 'students',
+    totalRecords: students.length,
+    successCount: successfulStudents.length,
+    failedCount: failedStudents.length,
+    status: importStatus,
+    importedBy: req.user.id,
+    importedByName: req.user.name || 'Unknown',
+    importedByEmail: req.user.email,
+    successfulRecords: successfulStudents.map(s => ({
+      _id: s._id,
+      name: s.name,
+      email: s.email,
+      rollNumber: s.rollNumber,
+      department: s.department,
+    })),
+    failedRecords: failedStudents,
+    errorSummary: failedStudents.map(f => `Row ${f.index + 2}: ${f.name} - ${f.reason}`),
+    completedAt: new Date(),
+    metadata: {
+      source: 'csv',
+      ipAddress: req.ip || req.connection.remoteAddress || 'unknown',
+      userAgent: req.get('user-agent') || 'unknown',
+    },
+  });
+
+  await importLog.save();
+
+  // Return comprehensive result with import log ID
   res.status(201).send({
     message: `Successfully imported ${successfulStudents.length} of ${students.length} student(s)`,
     successCount: successfulStudents.length,
     failedCount: failedStudents.length,
+    importLogId: importLog._id, // Include import log ID for tracking
     successful: successfulStudents,
     failed: failedStudents,
     details: failedStudents.map(f => `Row ${f.index + 2}: ${f.name} - ${f.reason}`)
@@ -875,6 +955,117 @@ app.delete('/students/:id', requireAuth, asyncHandler(async (req, res) => {
   const student = await Student.findByIdAndDelete(req.params.id);
   if (!student) return res.status(404).send('Student not found');
   res.send(student);
+}));
+
+/**
+ * =========================================
+ * IMPORT LOG ENDPOINTS
+ * =========================================
+ */
+
+/**
+ * GET /import-logs
+ * Retrieves all import logs with pagination
+ * Query params: page (default 1), limit (default 20), type (filter by import type)
+ */
+app.get('/import-logs', requireAuth, asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const importType = req.query.type; // Optional: filter by import type
+
+  const skip = (page - 1) * limit;
+  const query = importType ? { importType } : {};
+
+  const logs = await ImportLog.find(query)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .populate('importedBy', 'name email');
+
+  const total = await ImportLog.countDocuments(query);
+
+  res.send({
+    logs,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+    },
+  });
+}));
+
+/**
+ * GET /import-logs/:id
+ * Retrieves a specific import log with full details
+ */
+app.get('/import-logs/:id', requireAuth, asyncHandler(async (req, res) => {
+  const log = await ImportLog.findById(req.params.id).populate('importedBy', 'name email role');
+  if (!log) return res.status(404).send('Import log not found');
+  res.send(log);
+}));
+
+/**
+ * GET /import-logs/type/:importType
+ * Retrieves all import logs for a specific type
+ * Example: /import-logs/type/students
+ */
+app.get('/import-logs/type/:importType', requireAuth, asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const skip = (page - 1) * limit;
+
+  const logs = await ImportLog.find({ importType: req.params.importType })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .populate('importedBy', 'name email');
+
+  const total = await ImportLog.countDocuments({ importType: req.params.importType });
+
+  res.send({
+    logs,
+    importType: req.params.importType,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+    },
+  });
+}));
+
+/**
+ * GET /import-logs/summary/count
+ * Gets summary statistics of all imports
+ */
+app.get('/import-logs/summary/count', requireAuth, asyncHandler(async (req, res) => {
+  const totalImports = await ImportLog.countDocuments();
+  const successfulImports = await ImportLog.countDocuments({ status: 'completed' });
+  const partialImports = await ImportLog.countDocuments({ status: 'partial' });
+  const failedImports = await ImportLog.countDocuments({ status: 'failed' });
+
+  const stats = await ImportLog.aggregate([
+    {
+      $group: {
+        _id: '$importType',
+        count: { $sum: 1 },
+        totalRecords: { $sum: '$totalRecords' },
+        totalSuccess: { $sum: '$successCount' },
+        totalFailed: { $sum: '$failedCount' },
+      },
+    },
+  ]);
+
+  res.send({
+    summary: {
+      totalImports,
+      successful: successfulImports,
+      partial: partialImports,
+      failed: failedImports,
+    },
+    byType: stats,
+  });
 }));
 
 /**

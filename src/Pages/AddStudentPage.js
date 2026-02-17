@@ -4,11 +4,13 @@
  * Wrapper page that renders both:
  * - Single Student Form for manual entry
  * - CSV Uploader for bulk import
+ * - Import History tracking
  */
 
 import React, { useState } from "react";
 import StudentForm from "../Components/StudentForm";
 import { CSVUploader } from "../dataflow/addstudentsfromcsv";
+import ImportHistory from "../dataflow/ImportHistory";
 
 function AddStudentPage({ onAddStudent, apiBase, authHeaders }) {
   const [activeTab, setActiveTab] = useState('single'); // 'single' or 'bulk'
@@ -123,6 +125,11 @@ function AddStudentPage({ onAddStudent, apiBase, authHeaders }) {
             />
           </div>
         )}
+      </div>
+
+      {/* Import History - Full Width */}
+      <div style={{ marginTop: '40px', paddingTop: '40px', borderTop: '2px solid #ecf0f1' }}>
+        <ImportHistory apiBase={apiBase} authHeaders={authHeaders} />
       </div>
     </div>
   );
