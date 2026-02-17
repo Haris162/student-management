@@ -13,6 +13,7 @@ import ImportHistory from '../dataflow/ImportHistory';
 
 const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
   const [activeFeature, setActiveFeature] = useState('bulk-students');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Styling
   const containerStyle = {
@@ -60,6 +61,31 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
     overflowY: 'auto',
     overflowX: 'hidden',
   };
+
+  const searchBoxStyle = {
+    width: '100%',
+    padding: '10px 12px',
+    marginBottom: '15px',
+    border: '1px solid #3498db',
+    borderRadius: '6px',
+    backgroundColor: '#ecf0f1',
+    color: '#1e3c72',
+    fontSize: '13px',
+    fontWeight: '500',
+  };
+
+  const featureItemStyle = (isActive) => ({
+    padding: '12px',
+    marginBottom: '10px',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    backgroundColor: isActive ? '#3498db' : 'rgba(255, 255, 255, 0.1)',
+    border: isActive ? '2px solid #2980b9' : '1px solid rgba(255, 255, 255, 0.2)',
+    color: 'white',
+    fontSize: '12px',
+    fontWeight: isActive ? '600' : '500',
+    transition: 'all 0.3s',
+  });
 
   const headerStyle = {
     marginBottom: '25px',
@@ -205,68 +231,62 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
 
   const activeFeatureData = features[activeFeature];
 
+  // Filter features based on search term
+  const filteredFeatures = Object.entries(features).filter(([_, f]) =>
+    f.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    f.description.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div style={containerStyle}>
       {/* Left Sidebar - Navigation */}
       <div style={sidebarStyle}>
-        <div style={sidebarTitleStyle}>📁 Dataflows</div>
+        <div style={sidebarTitleStyle}>🔍 Find Dataflows</div>
 
-        {/* Active/Implemented Features */}
-        <div style={{ marginBottom: '20px' }}>
-          <div
-            style={{
-              color: '#95a5a6',
-              fontSize: '11px',
-              fontWeight: '700',
-              textTransform: 'uppercase',
-              marginBottom: '8px',
-              letterSpacing: '1px',
-            }}
-          >
-            ✓ Active
-          </div>
-          {Object.entries(features)
-            .filter(([_, f]) => f.status === 'active')
-            .map(([key, feature]) => (
+        {/* Search Box */}
+        <input
+          type="text"
+          placeholder="Search dataflows..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={searchBoxStyle}
+        />
+
+        {/* Feature List */}
+        <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
+          {filteredFeatures.length === 0 ? (
+            <div
+              style={{
+                color: '#bdc3c7',
+                textAlign: 'center',
+                padding: '20px 10px',
+                fontSize: '12px',
+              }}
+            >
+              No dataflows found
+            </div>
+          ) : (
+            filteredFeatures.map(([key, feature]) => (
               <div
                 key={key}
-                style={navItemStyle(activeFeature === key)}
+                style={featureItemStyle(activeFeature === key)}
                 onClick={() => setActiveFeature(key)}
+                title={feature.title}
               >
-                {feature.icon} {feature.title.split(' ').slice(1).join(' ')}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>{feature.icon}</span>
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: '600' }}>
+                      {feature.title.split(' ').slice(1).join(' ')}
+                    </div>
+                    <div style={{ fontSize: '10px', opacity: 0.8 }}>
+                      {feature.status === 'active' ? '✓ Active' : '🔄 Coming Soon'}
+                    </div>
+                  </div>
+                </div>
               </div>
-            ))}
-        </div>
-
-        {/* Coming Soon Features */}
-        <div>
-          <div
-            style={{
-              color: '#95a5a6',
-              fontSize: '11px',
-              fontWeight: '700',
-              textTransform: 'uppercase',
-              marginBottom: '8px',
-              letterSpacing: '1px',
-            }}
-          >
-            🔄 Coming Soon
-          </div>
-          {Object.entries(features)
-            .filter(([_, f]) => f.status === 'coming-soon')
-            .map(([key, feature]) => (
-              <div
-                key={key}
-                style={{
-                  ...navItemStyle(activeFeature === key),
-                  opacity: 0.7,
-                  cursor: 'not-allowed',
-                }}
-                onClick={() => {}}
-              >
-                {feature.icon} {feature.title.split(' ').slice(1).join(' ')}
-              </div>
-            ))}
+            ))
+          )}
         </div>
       </div>
 
