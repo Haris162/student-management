@@ -241,7 +241,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
     <div style={containerStyle}>
       {/* Left Sidebar - Navigation */}
       <div style={sidebarStyle}>
-        <div style={sidebarTitleStyle}>🔍 Find Dataflows</div>
+        <div style={sidebarTitleStyle}>� Dataflows</div>
 
         {/* Search Box */}
         <input
