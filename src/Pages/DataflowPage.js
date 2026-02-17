@@ -18,7 +18,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
   // Styling
   const containerStyle = {
     display: 'flex',
-    height: 'calc(100vh - 60px)',
+    height: '100vh',
     backgroundColor: '#f8f9fa',
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   };
