@@ -240,8 +240,19 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
   return (
     <div style={containerStyle}>
       <style>{`
+        .dataflow-scrollbar {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
         .dataflow-scrollbar::-webkit-scrollbar {
-          display: none;
+          width: 0;
+          height: 0;
+        }
+        .dataflow-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .dataflow-scrollbar::-webkit-scrollbar-thumb {
+          background: transparent;
         }
       `}</style>
       {/* Left Sidebar - Navigation */}
@@ -262,9 +273,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
           className="dataflow-scrollbar"
           style={{ 
             overflowY: 'auto', 
-            maxHeight: 'calc(100vh - 220px)',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none'
+            maxHeight: 'calc(100vh - 220px)'
           }}>
           {filteredFeatures.length === 0 ? (
             <div
