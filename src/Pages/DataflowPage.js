@@ -60,7 +60,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
   const contentStyle = {
     flex: 1,
     padding: '20px',
-    overflowY: 'hidden',
+    overflowY: 'auto',
     overflowX: 'hidden',
   };
 
@@ -242,7 +242,10 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
   return (
     <div style={containerStyle}>
       <style>{`
-        body, html { overflow-x: hidden; }
+        body, html { 
+          overflow: hidden; 
+          height: 100%;
+        }
       `}</style>
       {/* Left Sidebar - Navigation */}
       <div style={sidebarStyle}>
