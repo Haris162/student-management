@@ -29,9 +29,10 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
     padding: '20px',
     overflowY: 'visible',
     overflowX: 'hidden',
-    boxShadow: '2px 0 4px rgba(0,0,0,0.1)',
     flexShrink: 0,
     height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
   };
 
   const sidebarTitleStyle = {
@@ -58,7 +59,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
 
   const contentStyle = {
     flex: 1,
-    padding: '30px',
+    padding: '20px',
     overflowY: 'auto',
     overflowX: 'hidden',
   };
