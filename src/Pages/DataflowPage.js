@@ -60,7 +60,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
   const contentStyle = {
     flex: 1,
     padding: '20px',
-    overflowY: 'auto',
+    overflowY: 'hidden',
     overflowX: 'hidden',
   };
 
