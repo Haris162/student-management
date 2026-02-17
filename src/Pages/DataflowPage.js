@@ -17,7 +17,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
   // Styling
   const containerStyle = {
     display: 'flex',
-    height: 'calc(100vh - 120px)',
+    height: 'calc(100vh - 60px)',
     backgroundColor: '#f8f9fa',
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   };
@@ -29,6 +29,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
     overflowY: 'hidden',
     boxShadow: '2px 0 4px rgba(0,0,0,0.1)',
     flexShrink: 0,
+    height: '100%',
   };
 
   const sidebarTitleStyle = {
@@ -55,13 +56,13 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
 
   const contentStyle = {
     flex: 1,
-    padding: '40px',
+    padding: '30px',
     overflowY: 'auto',
     overflowX: 'hidden',
   };
 
   const headerStyle = {
-    marginBottom: '30px',
+    marginBottom: '25px',
   };
 
   const titleStyle = {
@@ -80,7 +81,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
   const featureCardStyle = {
     backgroundColor: 'white',
     borderRadius: '8px',
-    padding: '30px',
+    padding: '25px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
     border: '1px solid #e0e0e0',
   };
@@ -208,7 +209,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
     <div style={containerStyle}>
       {/* Left Sidebar - Navigation */}
       <div style={sidebarStyle}>
-        <div style={sidebarTitleStyle}>📁 Dataflow Features</div>
+        <div style={sidebarTitleStyle}>📁 Dataflows</div>
 
         {/* Active/Implemented Features */}
         <div style={{ marginBottom: '20px' }}>
@@ -282,7 +283,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
 
         {/* Feature Details */}
         {activeFeatureData.status === 'active' && (
-          <div style={{ marginBottom: '30px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          <div style={{ marginBottom: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             {/* Details Panel */}
             <div>
               <div style={{ marginBottom: '20px' }}>
