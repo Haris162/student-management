@@ -114,7 +114,6 @@ const ImportHistory = ({ apiBase, authHeaders }) => {
   };
 
   const modalOverlayStyle = {
-    display: 'fixed',
     position: 'fixed',
     top: 0,
     left: 0,
