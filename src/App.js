@@ -18,6 +18,7 @@ import ExamsPage from "./Pages/ExamsPage";
 import LoginPage from "./Pages/LoginPage";
 import AccountPage from "./Pages/AccountPage";
 import AddUserPage from "./Pages/AddUserPage";
+import DataflowPage from "./Pages/DataflowPage";
 import NotificationsPage from "./Pages/NotificationsPage";
 
 function App() {
@@ -315,6 +316,18 @@ function App() {
             element={
               <RequireAdmin>
                 <AddStudentPage
+                  onAddStudent={addStudent}
+                  apiBase={apiBase}
+                  authHeaders={authHeaders}
+                />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/dataflow"
+            element={
+              <RequireAdmin>
+                <DataflowPage
                   onAddStudent={addStudent}
                   apiBase={apiBase}
                   authHeaders={authHeaders}

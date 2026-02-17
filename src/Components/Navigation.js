@@ -373,6 +373,16 @@ function Navigation({ students = [], onLogout, auth, notificationCount = 0 }) {
             </Link>
 
             <Link
+              to="/dataflow"
+              style={menuItemStyle}
+              onClick={() => setShowProfileMenu(false)}
+              onMouseOver={(e) => e.target.style.backgroundColor = "rgba(42, 82, 152, 0.1)"}
+              onMouseOut={(e) => e.target.style.backgroundColor = "transparent"}
+            >
+              📁 Dataflow
+            </Link>
+
+            <Link
               to="/account"
               style={menuItemStyle}
               onClick={() => setShowProfileMenu(false)}
