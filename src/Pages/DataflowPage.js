@@ -66,13 +66,13 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
 
   const searchBoxStyle = {
     width: '100%',
-    padding: '10px 12px',
-    marginBottom: '15px',
+    padding: '8px 10px',
+    marginBottom: '12px',
     border: '1px solid #3498db',
-    borderRadius: '6px',
+    borderRadius: '4px',
     backgroundColor: '#ecf0f1',
     color: '#1e3c72',
-    fontSize: '13px',
+    fontSize: '12px',
     fontWeight: '500',
   };
 
