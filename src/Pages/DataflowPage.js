@@ -272,8 +272,10 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
         <div 
           className="dataflow-scrollbar"
           style={{ 
-            overflowY: 'auto', 
-            maxHeight: 'calc(100vh - 220px)'
+            overflowY: 'scroll',
+            maxHeight: 'calc(100vh - 220px)',
+            paddingRight: '17px',
+            marginRight: '-17px'
           }}>
           {filteredFeatures.length === 0 ? (
             <div
