@@ -27,7 +27,8 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
     width: '280px',
     backgroundColor: '#1e3c72',
     padding: '20px',
-    overflowY: 'hidden',
+    overflowY: 'visible',
+    overflowX: 'hidden',
     boxShadow: '2px 0 4px rgba(0,0,0,0.1)',
     flexShrink: 0,
     height: '100%',
@@ -240,20 +241,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
   return (
     <div style={containerStyle}>
       <style>{`
-        .dataflow-scrollbar {
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-        }
-        .dataflow-scrollbar::-webkit-scrollbar {
-          width: 0;
-          height: 0;
-        }
-        .dataflow-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .dataflow-scrollbar::-webkit-scrollbar-thumb {
-          background: transparent;
-        }
+        body, html { overflow-x: hidden; }
       `}</style>
       {/* Left Sidebar - Navigation */}
       <div style={sidebarStyle}>
@@ -272,10 +260,7 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
         <div 
           className="dataflow-scrollbar"
           style={{ 
-            overflowY: 'scroll',
-            maxHeight: 'calc(100vh - 220px)',
-            paddingRight: '17px',
-            marginRight: '-17px'
+            width: '100%'
           }}>
           {filteredFeatures.length === 0 ? (
             <div
