@@ -3,7 +3,7 @@
  * Validates and parses CSV data
  */
 
-const REQUIRED_FIELDS = ['name', 'email', 'rollNumber', 'department'];
+const REQUIRED_FIELDS = ['name', 'email', 'department'];
 
 /**
  * Parse CSV text content into array of objects
@@ -95,11 +95,6 @@ export const validateStudent = (student) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!student.email || !emailRegex.test(student.email)) {
     errors.push('Invalid email format');
-  }
-
-  // Roll number validation
-  if (!student.rollNumber || student.rollNumber.length < 3) {
-    errors.push('Roll number must be at least 3 characters');
   }
 
   // Department validation

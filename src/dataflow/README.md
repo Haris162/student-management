@@ -69,7 +69,6 @@ import { CSVUploader } from '../dataflow/addstudentsfromcsv';
 **Required Columns:**
 - `name` - Student's full name
 - `email` - Student's email address (must be unique)
-- `rollNumber` - Roll number (must be unique)
 - `department` - Department name
 
 **Optional Columns:**
@@ -78,11 +77,14 @@ import { CSVUploader } from '../dataflow/addstudentsfromcsv';
 - `dateOfBirth` - Date of birth (YYYY-MM-DD format)
 - `semester` - Semester number (default: 1)
 
+**Auto-Generated Fields:**
+- `rollNumber` - System automatically generates unique roll numbers based on department abbreviation + counter (e.g., CS001, MATH002)
+
 **Example:**
 ```csv
-name,email,rollNumber,department,phone,address
-John Doe,john@school.com,10A001,Computer Science,9876543210,123 Main St
-Jane Smith,jane@school.com,10A002,Computer Science,9876543211,456 Oak Ave
+name,email,department,phone,address
+John Doe,john@school.com,Computer Science,9876543210,123 Main St
+Jane Smith,jane@school.com,Computer Science,9876543211,456 Oak Ave
 ```
 
 ## Error Handling
@@ -115,10 +117,10 @@ Users can see:
   successCount: 5,
   failedCount: 1,
   successful: [
-    { _id, name, rollNumber, email }
+    { _id, name, rollNumber, email, department }  // rollNumber is auto-generated
   ],
   failed: [
-    { index, name, reason }
+    { index, name, reason }  // reason explains why import failed
   ],
   details: [
     "Row 3: Jane Smith - Email already exists"

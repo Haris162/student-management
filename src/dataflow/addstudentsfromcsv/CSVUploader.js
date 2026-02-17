@@ -212,7 +212,7 @@ const CSVUploader = ({ apiBase, authHeaders, onUploadSuccess }) => {
                 📁 Click to select or drag CSV file here
               </p>
               <p style={{ margin: 0, fontSize: '12px', color: '#7f8c8d' }}>
-                Required columns: name, email, rollNumber, department
+                Required columns: name, email, department
               </p>
             </div>
           </label>
@@ -259,7 +259,6 @@ const CSVUploader = ({ apiBase, authHeaders, onUploadSuccess }) => {
                   <tr>
                     <th style={thStyle}>Name</th>
                     <th style={thStyle}>Email</th>
-                    <th style={thStyle}>Roll Number</th>
                     <th style={thStyle}>Department</th>
                   </tr>
                 </thead>
@@ -268,7 +267,6 @@ const CSVUploader = ({ apiBase, authHeaders, onUploadSuccess }) => {
                     <tr key={idx}>
                       <td style={tdStyle}>{student.name}</td>
                       <td style={tdStyle}>{student.email}</td>
-                      <td style={tdStyle}>{student.rollNumber}</td>
                       <td style={tdStyle}>{student.department}</td>
                     </tr>
                   ))}

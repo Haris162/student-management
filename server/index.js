@@ -718,6 +718,7 @@ app.post('/students', requireAuth, asyncHandler(async (req, res) => {
  * POST /students/bulk-upload
  * Bulk import students from CSV data
  * Expects array of student objects
+ * Automatically generates unique roll numbers for each student
  */
 app.post('/students/bulk-upload', requireAuth, asyncHandler(async (req, res) => {
   const { students } = req.body;
@@ -737,14 +738,14 @@ app.post('/students/bulk-upload', requireAuth, asyncHandler(async (req, res) => 
   for (let index = 0; index < students.length; index++) {
     try {
       const studentData = students[index];
-      const { name, email, rollNumber, department, phone, address, dateOfBirth, semester } = studentData;
+      const { name, email, department, phone, address, dateOfBirth, semester } = studentData;
 
       // Validate required fields
-      if (!name || !email || !rollNumber || !department) {
+      if (!name || !email || !department) {
         failedStudents.push({
           index,
           name: name || 'Unknown',
-          reason: 'Missing required field(s): name, email, rollNumber, or department'
+          reason: 'Missing required field(s): name, email, or department'
         });
         continue;
       }
@@ -760,22 +761,48 @@ app.post('/students/bulk-upload', requireAuth, asyncHandler(async (req, res) => 
         continue;
       }
 
-      // Check if rollNumber already exists
-      const existingRoll = await Student.findOne({ rollNumber });
+      // Generate unique roll number
+      // Format: [Department Abbreviation][Counter]
+      // Example: CS001, MATH002, etc.
+      const deptAbbr = department
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase())
+        .join('');
+      
+      // Get all students in same department to find next counter
+      const deptStudents = await Student.find({ 
+        department: { $regex: `^${department}$`, $options: 'i' } 
+      });
+      
+      // Find the highest counter in this department
+      let maxCounter = 0;
+      deptStudents.forEach(s => {
+        if (s.rollNumber && s.rollNumber.startsWith(deptAbbr)) {
+          const suffix = s.rollNumber.slice(deptAbbr.length);
+          const num = parseInt(suffix, 10);
+          if (!isNaN(num) && num > maxCounter) maxCounter = num;
+        }
+      });
+      
+      // Generate new roll number
+      const newRollNumber = `${deptAbbr}${String(maxCounter + 1).padStart(3, '0')}`;
+
+      // Check if generated roll number already exists (safety check)
+      const existingRoll = await Student.findOne({ rollNumber: newRollNumber });
       if (existingRoll) {
         failedStudents.push({
           index,
           name,
-          reason: `Roll number already exists: ${rollNumber}`
+          reason: 'Failed to generate unique roll number (generation logic error)'
         });
         continue;
       }
 
-      // Create new student
+      // Create new student with auto-generated roll number
       const newStudent = new Student({
         name,
         email,
-        rollNumber,
+        rollNumber: newRollNumber,
         department,
         phone: phone || '',
         address: address || '',
@@ -787,8 +814,9 @@ app.post('/students/bulk-upload', requireAuth, asyncHandler(async (req, res) => 
       successfulStudents.push({
         _id: newStudent._id,
         name,
-        rollNumber,
+        rollNumber: newRollNumber,
         email,
+        department,
       });
     } catch (error) {
       failedStudents.push({

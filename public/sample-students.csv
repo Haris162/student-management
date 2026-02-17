@@ -1,7 +1,7 @@
-name,email,rollNumber,department,phone,address,dateOfBirth,semester
-John Doe,john.doe@school.com,10A001,Computer Science,9876543210,123 Main St,2008-05-15,1
-Jane Smith,jane.smith@school.com,10A002,Computer Science,9876543211,456 Oak Ave,2008-03-20,1
-Michael Johnson,michael.j@school.com,10A003,Computer Science,9876543212,789 Pine Rd,2008-07-10,1
-Sarah Williams,sarah.w@school.com,10B001,Mathematics,9876543213,321 Elm St,2008-01-25,1
-Robert Brown,robert.b@school.com,10B002,Mathematics,9876543214,654 Maple Dr,2008-09-30,1
-Emily Davis,emily.d@school.com,10B003,Mathematics,9876543215,987 Cedar Ln,2008-04-12,1
+name,email,department,phone,address,dateOfBirth,semester
+John Doe,john.doe@school.com,Computer Science,9876543210,123 Main St,2008-05-15,1
+Jane Smith,jane.smith@school.com,Computer Science,9876543211,456 Oak Ave,2008-03-20,1
+Michael Johnson,michael.j@school.com,Computer Science,9876543212,789 Pine Rd,2008-07-10,1
+Sarah Williams,sarah.w@school.com,Mathematics,9876543213,321 Elm St,2008-01-25,1
+Robert Brown,robert.b@school.com,Mathematics,9876543214,654 Maple Dr,2008-09-30,1
+Emily Davis,emily.d@school.com,Mathematics,9876543215,987 Cedar Ln,2008-04-12,1
