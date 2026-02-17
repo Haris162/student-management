@@ -239,6 +239,11 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
 
   return (
     <div style={containerStyle}>
+      <style>{`
+        .dataflow-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
       {/* Left Sidebar - Navigation */}
       <div style={sidebarStyle}>
         <div style={sidebarTitleStyle}>DATAFLOWS</div>
@@ -253,7 +258,14 @@ const DataflowPage = ({ apiBase, authHeaders, onAddStudent }) => {
         />
 
         {/* Feature List */}
-        <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
+        <div 
+          className="dataflow-scrollbar"
+          style={{ 
+            overflowY: 'auto', 
+            maxHeight: 'calc(100vh - 220px)',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}>
           {filteredFeatures.length === 0 ? (
             <div
               style={{
