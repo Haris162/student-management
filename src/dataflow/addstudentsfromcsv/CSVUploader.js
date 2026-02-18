@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { parseCSV, validateAllStudents } from './csvParser';
 import UploadStatus from './UploadStatus';
 
@@ -7,6 +8,7 @@ const CSVUploader = ({ apiBase, authHeaders, onUploadSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [preview, setPreview] = useState(null);
+  const navigate = useNavigate();
 
   const containerStyle = {
     padding: '20px',
@@ -154,7 +156,11 @@ const CSVUploader = ({ apiBase, authHeaders, onUploadSuccess }) => {
           'Content-Type': 'application/json',
           ...authHeaders,
         },
-        body: JSON.stringify({ students: preview.valid }),
+        body: JSON.stringify({
+          students: preview.valid,
+          totalRows: preview.totalRows,
+          fileName: file?.name || '',
+        }),
       });
 
       const result = await response.json();
@@ -169,6 +175,9 @@ const CSVUploader = ({ apiBase, authHeaders, onUploadSuccess }) => {
         setPreview(null);
         if (onUploadSuccess) {
           onUploadSuccess(result);
+        }
+        if (result.runId) {
+          navigate(`/dataflow/runs/${result.runId}`);
         }
       } else {
         setUploadStatus({
@@ -212,7 +221,7 @@ const CSVUploader = ({ apiBase, authHeaders, onUploadSuccess }) => {
                 📁 Click to select or drag CSV file here
               </p>
               <p style={{ margin: 0, fontSize: '12px', color: '#7f8c8d' }}>
-                Required columns: name, email, department
+                Required columns: name, studentClass, section (All others optional)
               </p>
             </div>
           </label>

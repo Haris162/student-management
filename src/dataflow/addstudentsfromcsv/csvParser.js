@@ -1,9 +1,12 @@
 /**
  * CSV Parser for Student Bulk Upload
  * Validates and parses CSV data
+ * Fields match the AddStudent form exactly
  */
 
-const REQUIRED_FIELDS = ['name', 'email', 'department'];
+const REQUIRED_VALUE_FIELDS = ['name', 'studentclass', 'section'];
+const OPTIONAL_FIELDS = ['age', 'fathername', 'mothername', 'fatheroccupation', 'fatherincome', 'addressline1', 'addressline2', 'city', 'state', 'postalcode', 'country'];
+const EXPECTED_HEADERS = [...REQUIRED_VALUE_FIELDS, ...OPTIONAL_FIELDS];
 
 /**
  * Parse CSV text content into array of objects
@@ -24,19 +27,26 @@ export const parseCSV = (csvText) => {
   const headerLine = lines[0];
   const headers = headerLine.split(',').map(h => h.trim().toLowerCase());
 
-  // Validate required fields
-  const missingFields = REQUIRED_FIELDS.filter(
-    field => !headers.includes(field.toLowerCase())
-  );
-  if (missingFields.length > 0) {
-    errors.push(`Missing required columns: ${missingFields.join(', ')}`);
+  // Validate strict header order and required columns
+  if (headers.length !== EXPECTED_HEADERS.length) {
+    errors.push(
+      `Invalid column count. Expected headers: ${EXPECTED_HEADERS.join(', ')}`
+    );
+    return { data: [], errors };
+  }
+
+  const headerMatches = headers.every((header, index) => header === EXPECTED_HEADERS[index]);
+  if (!headerMatches) {
+    errors.push(
+      `Invalid column order. Expected headers: ${EXPECTED_HEADERS.join(', ')}`
+    );
     return { data: [], errors };
   }
 
   // Get column indices
   const columnIndices = {};
-  REQUIRED_FIELDS.forEach(field => {
-    columnIndices[field] = headers.indexOf(field.toLowerCase());
+  EXPECTED_HEADERS.forEach(field => {
+    columnIndices[field] = headers.indexOf(field);
   });
 
   // Parse data rows
@@ -47,11 +57,14 @@ export const parseCSV = (csvText) => {
     const values = line.split(',').map(v => v.trim());
     const rowNumber = i + 1;
 
+    // Skip rows where all values are empty
+    if (values.every(v => !v)) continue;
+
     // Extract required fields
     const student = {};
     let hasError = false;
 
-    REQUIRED_FIELDS.forEach(field => {
+    REQUIRED_VALUE_FIELDS.forEach(field => {
       const value = values[columnIndices[field]];
       if (!value) {
         errors.push(`Row ${rowNumber}: Missing value for "${field}"`);
@@ -61,18 +74,18 @@ export const parseCSV = (csvText) => {
       }
     });
 
+    // Only process if no required field errors
+    if (hasError) continue;
+
     // Add optional fields if present
-    const optionalFields = ['phone', 'address', 'dateOfBirth', 'semester'];
-    optionalFields.forEach(field => {
+    OPTIONAL_FIELDS.forEach(field => {
       const index = headers.indexOf(field.toLowerCase());
       if (index !== -1 && values[index]) {
         student[field] = values[index];
       }
     });
 
-    if (!hasError) {
-      data.push(student);
-    }
+    data.push(student);
   }
 
   return { data, errors };
@@ -87,19 +100,36 @@ export const validateStudent = (student) => {
   const errors = [];
 
   // Name validation
-  if (!student.name || student.name.length < 2) {
+  if (!student.name || student.name.trim().length < 2) {
     errors.push('Name must be at least 2 characters');
   }
 
-  // Email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!student.email || !emailRegex.test(student.email)) {
-    errors.push('Invalid email format');
+  // Age validation (optional, but if provided must be valid)
+  if (student.age) {
+    const age = parseInt(student.age);
+    if (isNaN(age) || age <= 0 || age > 100) {
+      errors.push('Age must be a number between 1-100');
+    }
   }
 
-  // Department validation
-  if (!student.department || student.department.length < 2) {
-    errors.push('Department must be at least 2 characters');
+  // Class validation
+  if (!student.studentclass || student.studentclass.trim().length < 1) {
+    errors.push('Class is required');
+  }
+
+  // Section validation (should be A or B)
+  if (!student.section || !['A', 'B'].includes(student.section.trim().toUpperCase())) {
+    errors.push('Section must be A or B');
+  }
+
+  // Father's name validation (optional, but if provided must be at least 2 chars)
+  if (student.fathername && student.fathername.trim().length < 2) {
+    errors.push('Father\'s name must be at least 2 characters if provided');
+  }
+
+  // Mother's name validation (optional, but if provided must be at least 2 chars)
+  if (student.mothername && student.mothername.trim().length < 2) {
+    errors.push('Mother\'s name must be at least 2 characters if provided');
   }
 
   return errors;

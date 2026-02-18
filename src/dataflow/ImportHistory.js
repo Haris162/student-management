@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 
-const ImportHistory = ({ apiBase, authHeaders }) => {
+const ImportHistory = ({ apiBase, authHeaders, fixedType = '' }) => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [filterType, setFilterType] = useState('');
+  const [filterType, setFilterType] = useState(fixedType || '');
   const [selectedLog, setSelectedLog] = useState(null);
   const [summary, setSummary] = useState(null);
 
@@ -143,15 +143,23 @@ const ImportHistory = ({ apiBase, authHeaders }) => {
   };
 
   useEffect(() => {
+    setFilterType(fixedType || '');
+    setPage(1);
+  }, [fixedType]);
+
+  useEffect(() => {
     fetchLogs();
-    fetchSummary();
-  }, [page, filterType]);
+    if (!fixedType) {
+      fetchSummary();
+    }
+  }, [page, filterType, fixedType]);
 
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const url = filterType
-        ? `${apiBase}/import-logs/type/${filterType}?page=${page}`
+      const activeType = fixedType || filterType;
+      const url = activeType
+        ? `${apiBase}/import-logs/type/${activeType}?page=${page}`
         : `${apiBase}/import-logs?page=${page}`;
 
       const response = await fetch(url, { headers: authHeaders });
@@ -176,16 +184,26 @@ const ImportHistory = ({ apiBase, authHeaders }) => {
     }
   };
 
+  const typeLabelMap = {
+    students: 'Students',
+    exams: 'Exams',
+    marks: 'Marks',
+  };
+
+  const typeLabel = fixedType ? typeLabelMap[fixedType] || fixedType : '';
+
   const formatDate = (date) => {
     return new Date(date).toLocaleString();
   };
 
   return (
     <div style={containerStyle}>
-      <h2 style={headerStyle}>📊 Import History & Tracking</h2>
+      <h2 style={headerStyle}>
+        {fixedType ? `📊 ${typeLabel} Import History` : '📊 Import History & Tracking'}
+      </h2>
 
       {/* Summary Cards */}
-      {summary && (
+      {!fixedType && summary && (
         <div style={summaryCardStyle}>
           <div style={summaryItemStyle}>
             <div style={summaryLabelStyle}>Total Imports</div>
@@ -213,29 +231,31 @@ const ImportHistory = ({ apiBase, authHeaders }) => {
       )}
 
       {/* Filter */}
-      <div style={{ marginBottom: '15px' }}>
-        <label style={{ marginRight: '10px', fontWeight: '600' }}>
-          Filter by Type:
-        </label>
-        <select
-          value={filterType}
-          onChange={(e) => {
-            setFilterType(e.target.value);
-            setPage(1);
-          }}
-          style={{
-            padding: '8px 12px',
-            borderRadius: '4px',
-            border: '1px solid #bdc3c7',
-            fontSize: '13px',
-          }}
-        >
-          <option value="">All Imports</option>
-          <option value="students">Students</option>
-          <option value="exams">Exams</option>
-          <option value="marks">Marks</option>
-        </select>
-      </div>
+      {!fixedType && (
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ marginRight: '10px', fontWeight: '600' }}>
+            Filter by Type:
+          </label>
+          <select
+            value={filterType}
+            onChange={(e) => {
+              setFilterType(e.target.value);
+              setPage(1);
+            }}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '4px',
+              border: '1px solid #bdc3c7',
+              fontSize: '13px',
+            }}
+          >
+            <option value="">All Imports</option>
+            <option value="students">Students</option>
+            <option value="exams">Exams</option>
+            <option value="marks">Marks</option>
+          </select>
+        </div>
+      )}
 
       {/* Import Logs Table */}
       <div style={{ overflowX: 'auto' }}>

@@ -156,8 +156,13 @@ function StudentList({ students, onDelete }) {
   };
 
   const classOptions = Array.from(new Set(students.map(s => s.studentClass).filter(Boolean)));
-  const filteredStudents = students.filter(student => {
-    const matchesName = student.name.toLowerCase().includes(searchTerm.toLowerCase());
+  
+  // Filter out students with no name
+  const validStudents = students.filter(s => s.name && s.name.trim());
+  
+  const filteredStudents = validStudents.filter(student => {
+    const nameValue = (student.name || '').toLowerCase();
+    const matchesName = nameValue.includes(searchTerm.toLowerCase());
     const matchesClass = classFilter ? student.studentClass === classFilter : true;
     return matchesName && matchesClass;
   });
@@ -195,10 +200,10 @@ function StudentList({ students, onDelete }) {
     <div style={tableContainerStyle}>
       <div style={tableHeaderStyle}>
         <h2 style={titleStyle}>📋 Student Records</h2>
-        <div style={statsStyle}>Total Students: {students.length} | Displaying: {filteredStudents.length} | Selected: {selectedIds.size}</div>
+        <div style={statsStyle}>Total Students: {validStudents.length} | Displaying: {filteredStudents.length} | Selected: {selectedIds.size}</div>
       </div>
 
-      {students.length > 0 && (
+      {validStudents.length > 0 && (
         <div style={filterContainerStyle}>
           <input
             type="text"
@@ -227,7 +232,7 @@ function StudentList({ students, onDelete }) {
         </div>
       )}
 
-      {filteredStudents.length === 0 && students.length === 0 ? (
+      {filteredStudents.length === 0 && validStudents.length === 0 ? (
         <div style={emptyContainerStyle}>
           <p style={emptyMessageStyle}>📚 No students added yet</p>
           <p style={emptySubtextStyle}>Start by filling the form above and adding your first student!</p>
@@ -251,7 +256,8 @@ function StudentList({ students, onDelete }) {
                   />
                 </th>
                 <th style={headerCellStyle}>#</th>
-                <th style={headerCellStyle}>👤 Name</th>
+                <th style={headerCellStyle}>� Roll Number</th>
+                <th style={headerCellStyle}>�👤 Name</th>
                 <th style={headerCellStyle}>🎂 Age</th>
                 <th style={headerCellStyle}>📚 Class</th>
                 <th style={headerCellStyle}>📋 Section</th>
@@ -275,13 +281,9 @@ function StudentList({ students, onDelete }) {
                     />
                   </td>
                   <td style={cellStyle}><strong>{String(index + 1).padStart(2, "0")}</strong></td>
+                  <td style={cellStyle}><strong style={{ color: '#2a5298' }}>{student.rollNumber || 'N/A'}</strong></td>
                   <td style={cellStyle}>
                     <strong>{student.name}</strong>
-                    {student.rollNumber && (
-                      <span style={{ marginLeft: '8px', color: '#2a5298', fontWeight: 400 }}>
-                        (Roll No: {student.rollNumber})
-                      </span>
-                    )}
                   </td>
                   <td style={cellStyle}>{student.age}</td>
                   <td style={cellStyle}><strong>{student.studentClass}</strong></td>

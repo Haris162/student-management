@@ -18,6 +18,7 @@ function AddUserPage({ apiBase, authHeaders, auth }) {
   const [role, setRole] = useState("lecturer");
   const [personalEmail, setPersonalEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -215,7 +216,12 @@ function AddUserPage({ apiBase, authHeaders, auth }) {
         return text ? JSON.parse(text) : {};
       })
       .then((data) => {
-        setMessage(`User creation request submitted to principal for approval!\n\nPending user details:\nName: ${userData.name}\nEmail: ${userData.email}\nRole: ${userData.role}\n\nThe user will be able to log in once the principal approves this request.`);
+        let successMsg = `User creation request submitted to principal for approval!\n\nPending user details:\nName: ${userData.name}\nEmail: ${userData.email}\nRole: ${userData.role}`;
+        if (userData.role === "lecturer" && userData.subject) {
+          successMsg += `\nSubject: ${userData.subject}`;
+        }
+        successMsg += `\n\nThe user will be able to log in once the principal approves this request.`;
+        setMessage(successMsg);
         // Reset form
         setName("");
         setEmail("");
@@ -223,6 +229,7 @@ function AddUserPage({ apiBase, authHeaders, auth }) {
         setRole("lecturer");
         setPersonalEmail("");
         setPhoneNumber("");
+        setSubject("");
       })
       .catch((err) => {
         setError(err.message || "Failed to submit user request");
@@ -240,6 +247,12 @@ function AddUserPage({ apiBase, authHeaders, auth }) {
       return;
     }
 
+    // Validate subject for lecturer role
+    if (role === "lecturer" && !subject.trim()) {
+      setError("Subject is required for lecturers");
+      return;
+    }
+
     const userData = {
       name,
       email: email.toLowerCase().trim(),
@@ -248,6 +261,11 @@ function AddUserPage({ apiBase, authHeaders, auth }) {
       personalEmail,
       phoneNumber,
     };
+
+    // Add subject only for lecturers
+    if (role === "lecturer") {
+      userData.subject = subject.trim();
+    }
 
     // If creating a principal, require OTP
     if (role === "principal") {
@@ -325,6 +343,30 @@ function AddUserPage({ apiBase, authHeaders, auth }) {
             <option value="admin">Admin</option>
             <option value="principal">Principal</option>
           </select>
+
+          {role === "lecturer" && (
+            <>
+              <label style={labelStyle}>Subject (Required for Lecturers)</label>
+              <select
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                style={selectStyle}
+                required
+              >
+                <option value="">-- Select a Subject --</option>
+                <option value="Telugu">Telugu</option>
+                <option value="Hindi">Hindi</option>
+                <option value="English">English</option>
+                <option value="Sanskrit">Sanskrit</option>
+                <option value="Mathematics">Mathematics</option>
+                <option value="Science">Science</option>
+                <option value="Social">Social</option>
+              </select>
+              <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#5c6c86", fontStyle: "italic" }}>
+                Select the subject this lecturer will teach
+              </p>
+            </>
+          )}
 
           <label style={labelStyle}>Personal Email (Optional)</label>
           <input

@@ -102,6 +102,7 @@ const userSchema = new mongoose.Schema({
   role: { type: String, default: 'admin' }, // User role: admin, principal, lecturer
   personalEmail: String, // Optional personal email
   phoneNumber: String, // Optional phone number
+  subject: String, // Subject taught (required for lecturers)
 });
 
 const User = mongoose.model('User', userSchema);
@@ -117,6 +118,7 @@ const userRequestSchema = new mongoose.Schema({
   role: String, // Requested role
   personalEmail: String, // Personal email
   phoneNumber: String, // Phone number
+  subject: String, // Subject taught (for lecturers)
   requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Admin who created the request
   requestedByName: String, // Name of requesting admin
   requestedByEmail: String, // Email of requesting admin
@@ -204,6 +206,33 @@ const importLogSchema = new mongoose.Schema({
 
 const ImportLog = mongoose.model('ImportLog', importLogSchema);
 
+/**
+ * Dataflow Run Schema Definition
+ * Stores execution details for each dataflow run
+ */
+const dataflowRunSchema = new mongoose.Schema({
+  dataflowKey: { type: String, required: true }, // e.g., 'students', 'exams', 'marks'
+  dataflowName: { type: String, required: true }, // Human-friendly name
+  runStartedAt: { type: Date, required: true },
+  runEndedAt: { type: Date, required: true },
+  totalErrors: { type: Number, required: true },
+  totalLinesImported: { type: Number, required: true },
+  totalLinesParsed: { type: Number, required: true },
+  totalLinesSuccessful: { type: Number, required: true },
+  messages: [String],
+  errors: [
+    {
+      line: Number,
+      message: String,
+    },
+  ],
+  importLogId: { type: mongoose.Schema.Types.ObjectId, ref: 'ImportLog' },
+  createdAt: { type: Date, default: Date.now },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+});
+
+const DataflowRun = mongoose.model('DataflowRun', dataflowRunSchema);
+
 // JWT secret key for signing tokens (use environment variable in production)
 const JWT_SECRET = process.env.JWT_SECRET || 'sms_dev_secret';
 
@@ -286,13 +315,14 @@ app.post('/auth/login', asyncHandler(async (req, res) => {
   const token = createToken(user);
   res.send({
     token,
-    user: { 
-      id: user._id, 
-      name: user.name, 
-      email: user.email, 
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
       role: user.role,
       personalEmail: user.personalEmail,
       phoneNumber: user.phoneNumber,
+      subject: user.subject,
     },
   });
 }));
@@ -303,7 +333,20 @@ app.post('/auth/login', asyncHandler(async (req, res) => {
  * Requires: Authorization header with JWT token
  */
 app.get('/auth/me', requireAuth, asyncHandler(async (req, res) => {
-  res.send({ user: req.user });
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).send('User not found');
+  
+  res.send({ 
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      personalEmail: user.personalEmail,
+      phoneNumber: user.phoneNumber,
+      subject: user.subject,
+    }
+  });
 }));
 
 /**
@@ -344,7 +387,7 @@ app.post('/auth/change-password', requireAuth, asyncHandler(async (req, res) => 
  * Requires: Authentication
  */
 app.put('/auth/profile', requireAuth, asyncHandler(async (req, res) => {
-  const { name, personalEmail, phoneNumber } = req.body || {};
+  const { name, personalEmail, phoneNumber, subject } = req.body || {};
   
   const user = await User.findById(req.user.id);
   if (!user) return res.status(404).send('User not found');
@@ -353,6 +396,7 @@ app.put('/auth/profile', requireAuth, asyncHandler(async (req, res) => {
   if (name) user.name = name;
   if (personalEmail !== undefined) user.personalEmail = personalEmail;
   if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
+  if (subject !== undefined) user.subject = subject;
   
   await user.save();
 
@@ -364,6 +408,7 @@ app.put('/auth/profile', requireAuth, asyncHandler(async (req, res) => {
       role: user.role,
       personalEmail: user.personalEmail,
       phoneNumber: user.phoneNumber,
+      subject: user.subject,
     },
   });
 }));
@@ -414,7 +459,7 @@ app.post('/users', requireAuth, asyncHandler(async (req, res) => {
     return res.status(403).send('Only admins can create user requests');
   }
 
-  const { name, email, password, role, personalEmail, phoneNumber } = req.body || {};
+  const { name, email, password, role, personalEmail, phoneNumber, subject } = req.body || {};
   
   // Validate required fields
   if (!name || !email || !password || !role) {
@@ -423,6 +468,11 @@ app.post('/users', requireAuth, asyncHandler(async (req, res) => {
 
   if (password.length < 6) {
     return res.status(400).send('Password must be at least 6 characters');
+  }
+
+  // Validate subject for lecturers
+  if (role === 'lecturer' && (!subject || !subject.trim())) {
+    return res.status(400).send('Subject is required for lecturers');
   }
 
   // Check for existing user with same email
@@ -449,6 +499,7 @@ app.post('/users', requireAuth, asyncHandler(async (req, res) => {
     role,
     personalEmail,
     phoneNumber,
+    subject: role === 'lecturer' ? subject : undefined,
     requestedBy: req.user.id,
     requestedByName: req.user.name,
     requestedByEmail: req.user.email,
@@ -510,6 +561,7 @@ app.post('/user-requests/:id/approve', requireAuth, asyncHandler(async (req, res
     role: request.role,
     personalEmail: request.personalEmail,
     phoneNumber: request.phoneNumber,
+    subject: request.subject,
   });
 
   // Update request status to approved
@@ -765,7 +817,10 @@ app.post('/students', requireAuth, asyncHandler(async (req, res) => {
  * Automatically generates unique roll numbers for each student
  */
 app.post('/students/bulk-upload', requireAuth, asyncHandler(async (req, res) => {
-  const { students } = req.body;
+  const { students, totalRows, fileName } = req.body;
+  const parsedTotalRows = Number(totalRows);
+
+  const runStartedAt = new Date();
   
   if (!Array.isArray(students) || students.length === 0) {
     return res.status(400).send({ 
@@ -782,54 +837,72 @@ app.post('/students/bulk-upload', requireAuth, asyncHandler(async (req, res) => 
   for (let index = 0; index < students.length; index++) {
     try {
       const studentData = students[index];
-      const { name, email, department, phone, address, dateOfBirth, semester } = studentData;
+      // Map lowercase CSV fields to proper field names
+      const { 
+        name, age, studentclass, section, fathername, mothername, 
+        fatheroccupation, fatherincome, addressline1, addressline2, 
+        city, state, postalcode, country 
+      } = studentData;
 
-      // Validate required fields
-      if (!name || !email || !department) {
+      // Validate required fields (only name, class, section needed for roll number)
+      if (!name || !name.trim() || !studentclass || !section) {
         failedStudents.push({
           index,
           name: name || 'Unknown',
-          reason: 'Missing required field(s): name, email, or department'
+          reason: 'Missing required field(s): name, studentClass, or section'
         });
         continue;
       }
 
-      // Check if email already exists
-      const existingStudent = await Student.findOne({ email });
-      if (existingStudent) {
+      // Validate age (optional, but if provided must be valid)
+      let parsedAge = null;
+      if (age) {
+        parsedAge = parseInt(age);
+        if (isNaN(parsedAge) || parsedAge <= 0 || parsedAge > 100) {
+          failedStudents.push({
+            index,
+            name,
+            reason: 'Age must be a number between 1-100'
+          });
+          continue;
+        }
+      }
+
+      // Validate section
+      if (!['A', 'B'].includes(section.trim().toUpperCase())) {
         failedStudents.push({
           index,
           name,
-          reason: `Email already exists: ${email}`
+          reason: 'Section must be A or B'
         });
         continue;
       }
 
-      // Generate unique roll number
-      // Format: [Department Abbreviation][Counter]
-      // Example: CS001, MATH002, etc.
-      const deptAbbr = department
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase())
-        .join('');
+      // Generate unique roll number based on class + section
+      // Format: [Class][Section][Counter]
+      // Example: 10A01, 10A02, 10B01, 11A01, etc.
+      const classPrefix = studentclass.trim().toUpperCase().replace(/\s+/g, '');
+      const sectionUpper = section.trim().toUpperCase();
+      const rollPrefix = `${classPrefix}${sectionUpper}`;
       
-      // Get all students in same department to find next counter
-      const deptStudents = await Student.find({ 
-        department: { $regex: `^${department}$`, $options: 'i' } 
+      // Get all students in same class AND section to find next counter
+      const classStudents = await Student.find({ 
+        studentClass: { $regex: `^${studentclass}$`, $options: 'i' },
+        section: { $regex: `^${section}$`, $options: 'i' }
       });
       
-      // Find the highest counter in this department
+      // Find the highest counter for this class+section combination
       let maxCounter = 0;
-      deptStudents.forEach(s => {
-        if (s.rollNumber && s.rollNumber.startsWith(deptAbbr)) {
-          const suffix = s.rollNumber.slice(deptAbbr.length);
+      classStudents.forEach(s => {
+        if (s.rollNumber && s.rollNumber.startsWith(rollPrefix)) {
+          const suffix = s.rollNumber.slice(rollPrefix.length);
           const num = parseInt(suffix, 10);
           if (!isNaN(num) && num > maxCounter) maxCounter = num;
         }
       });
       
-      // Generate new roll number
-      const newRollNumber = `${deptAbbr}${String(maxCounter + 1).padStart(3, '0')}`;
+      // Generate new roll number starting from 01
+      const newRollNumber = `${rollPrefix}${String(maxCounter + 1).padStart(2, '0')}`;
 
       // Check if generated roll number already exists (safety check)
       const existingRoll = await Student.findOne({ rollNumber: newRollNumber });
@@ -845,13 +918,20 @@ app.post('/students/bulk-upload', requireAuth, asyncHandler(async (req, res) => 
       // Create new student with auto-generated roll number
       const newStudent = new Student({
         name,
-        email,
+        age: parsedAge || null,
+        studentClass: studentclass,
+        section,
+        fatherName: fathername,
+        motherName: mothername,
+        fatherOccupation: fatheroccupation || '',
+        fatherIncome: fatherincome || '',
+        addressLine1: addressline1 || '',
+        addressLine2: addressline2 || '',
+        city: city || '',
+        state: state || '',
+        postalCode: postalcode || '',
+        country: country || '',
         rollNumber: newRollNumber,
-        department,
-        phone: phone || '',
-        address: address || '',
-        dateOfBirth: dateOfBirth || null,
-        semester: semester || 1,
       });
 
       await newStudent.save();
@@ -859,8 +939,9 @@ app.post('/students/bulk-upload', requireAuth, asyncHandler(async (req, res) => 
         _id: newStudent._id,
         name,
         rollNumber: newRollNumber,
-        email,
-        department,
+        age,
+        studentClass: studentclass,
+        section,
       });
     } catch (error) {
       failedStudents.push({
@@ -880,6 +961,7 @@ app.post('/students/bulk-upload', requireAuth, asyncHandler(async (req, res) => 
   // Create import log entry
   const importLog = new ImportLog({
     importType: 'students',
+    fileName: fileName || '',
     totalRecords: students.length,
     successCount: successfulStudents.length,
     failedCount: failedStudents.length,
@@ -906,12 +988,39 @@ app.post('/students/bulk-upload', requireAuth, asyncHandler(async (req, res) => 
 
   await importLog.save();
 
+  const runEndedAt = new Date();
+  const dataflowRun = new DataflowRun({
+    dataflowKey: 'students',
+    dataflowName: 'Bulk Import Students',
+    runStartedAt,
+    runEndedAt,
+    totalErrors: failedStudents.length,
+    totalLinesImported: students.length,
+    totalLinesParsed: Number.isFinite(parsedTotalRows) ? parsedTotalRows : students.length,
+    totalLinesSuccessful: successfulStudents.length,
+    messages: [
+      `Imported ${successfulStudents.length} of ${students.length} student(s)`,
+      failedStudents.length > 0
+        ? `${failedStudents.length} line(s) failed with errors`
+        : 'All lines imported successfully',
+    ],
+    errors: failedStudents.map(f => ({
+      line: f.index + 2,
+      message: `${f.name} - ${f.reason}`,
+    })),
+    importLogId: importLog._id,
+    createdBy: req.user.id,
+  });
+
+  await dataflowRun.save();
+
   // Return comprehensive result with import log ID
   res.status(201).send({
     message: `Successfully imported ${successfulStudents.length} of ${students.length} student(s)`,
     successCount: successfulStudents.length,
     failedCount: failedStudents.length,
     importLogId: importLog._id, // Include import log ID for tracking
+    runId: dataflowRun._id,
     successful: successfulStudents,
     failed: failedStudents,
     details: failedStudents.map(f => `Row ${f.index + 2}: ${f.name} - ${f.reason}`)
@@ -1066,6 +1175,38 @@ app.get('/import-logs/summary/count', requireAuth, asyncHandler(async (req, res)
     },
     byType: stats,
   });
+}));
+
+/**
+ * GET /import-logs/latest/all
+ * Gets the latest import for each dataflow type (for dashboard display)
+ */
+app.get('/import-logs/latest/all', requireAuth, asyncHandler(async (req, res) => {
+  const types = ['students', 'exams', 'marks'];
+  const latestImports = {};
+
+  for (const type of types) {
+    const latest = await ImportLog.findOne({ importType: type })
+      .sort({ createdAt: -1 })
+      .select('importType status successCount failedCount createdAt completedAt totalRecords');
+    
+    latestImports[type] = latest || null;
+  }
+
+  res.send({
+    latestImports,
+    generatedAt: new Date(),
+  });
+}));
+
+/**
+ * GET /dataflow-runs/:id
+ * Returns a single dataflow run by ID
+ */
+app.get('/dataflow-runs/:id', requireAuth, asyncHandler(async (req, res) => {
+  const run = await DataflowRun.findById(req.params.id);
+  if (!run) return res.status(404).send({ message: 'Run not found' });
+  res.send({ run });
 }));
 
 /**

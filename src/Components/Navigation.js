@@ -372,15 +372,17 @@ function Navigation({ students = [], onLogout, auth, notificationCount = 0 }) {
               📊 Exams
             </Link>
 
-            <Link
-              to="/dataflow"
-              style={menuItemStyle}
-              onClick={() => setShowProfileMenu(false)}
-              onMouseOver={(e) => e.target.style.backgroundColor = "rgba(42, 82, 152, 0.1)"}
-              onMouseOut={(e) => e.target.style.backgroundColor = "transparent"}
-            >
-              📁 Dataflow
-            </Link>
+            {auth?.user?.role === 'admin' && (
+              <Link
+                to="/dataflow"
+                style={menuItemStyle}
+                onClick={() => setShowProfileMenu(false)}
+                onMouseOver={(e) => e.target.style.backgroundColor = "rgba(42, 82, 152, 0.1)"}
+                onMouseOut={(e) => e.target.style.backgroundColor = "transparent"}
+              >
+                📁 Dataflow
+              </Link>
+            )}
 
             <Link
               to="/account"

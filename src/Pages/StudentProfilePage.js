@@ -510,12 +510,10 @@ function StudentProfilePage({ students, onUpdate, exams }) {
             <h2 style={{ fontSize: "18px", fontWeight: "700", color: "#1e3c72", margin: "0 0 15px 0", paddingBottom: "10px", borderBottom: "2px solid #7ec8e3" }}>
               {student.name}
             </h2>
-            <div style={{ ...infoRowStyle }}>
-              <div style={infoLabelStyle}>📋 Roll Number</div>
-              <div style={infoValueStyle}>{student.rollNumber || "N/A"}</div>
+            <div style={{ ...infoRowStyle }}>              <div style={infoLabelStyle}>📜 Roll Number</div>
+              <div style={infoValueStyle}>{student.rollNumber || 'N/A'}</div>
             </div>
-            <div style={{ ...infoRowStyle }}>
-              <div style={infoLabelStyle}>📚 Class</div>
+            <div style={{ ...infoRowStyle }}>              <div style={infoLabelStyle}> Class</div>
               <div style={infoValueStyle}>{student.studentClass}</div>
             </div>
             <div style={{ ...infoRowStyle }}>

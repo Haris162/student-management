@@ -27,6 +27,7 @@ function AccountPage({ apiBase, authHeaders, auth, unreadCount = 0, refreshUnrea
   const [editName, setEditName] = useState("");
   const [editPersonalEmail, setEditPersonalEmail] = useState("");
   const [editPhoneNumber, setEditPhoneNumber] = useState("");
+  const [editSubject, setEditSubject] = useState("");
   const [userRequests, setUserRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -395,6 +396,7 @@ function AccountPage({ apiBase, authHeaders, auth, unreadCount = 0, refreshUnrea
     setEditName(auth?.user?.name || "");
     setEditPersonalEmail(auth?.user?.personalEmail || "");
     setEditPhoneNumber(auth?.user?.phoneNumber || "");
+    setEditSubject(auth?.user?.subject || "");
     setIsEditingProfile(true);
     setMessage("");
     setError("");
@@ -405,6 +407,7 @@ function AccountPage({ apiBase, authHeaders, auth, unreadCount = 0, refreshUnrea
     setEditName("");
     setEditPersonalEmail("");
     setEditPhoneNumber("");
+    setEditSubject("");
     setMessage("");
     setError("");
   };
@@ -425,6 +428,7 @@ function AccountPage({ apiBase, authHeaders, auth, unreadCount = 0, refreshUnrea
         name: editName,
         personalEmail: editPersonalEmail,
         phoneNumber: editPhoneNumber,
+        subject: editSubject,
       }),
     })
       .then(async (res) => {
@@ -643,6 +647,12 @@ function AccountPage({ apiBase, authHeaders, auth, unreadCount = 0, refreshUnrea
                     <div style={infoLabelStyle}>Role</div>
                     <div style={infoValueStyle}>{auth?.user?.role || "Admin"}</div>
                   </div>
+                  {auth?.user?.role === 'lecturer' && (
+                    <div style={infoRowStyle}>
+                      <div style={infoLabelStyle}>Subject</div>
+                      <div style={infoValueStyle}>{auth?.user?.subject || "Not set"}</div>
+                    </div>
+                  )}
                   <div style={infoRowStyle}>
                     <div style={infoLabelStyle}>Account ID</div>
                     <div style={infoValueStyle}>{auth?.user?.id || "N/A"}</div>
@@ -685,6 +695,26 @@ function AccountPage({ apiBase, authHeaders, auth, unreadCount = 0, refreshUnrea
                   style={inputStyle}
                   placeholder="Enter your phone number"
                 />
+
+                {auth?.user?.role === 'lecturer' && (
+                  <>
+                    <label style={labelStyle}>Subject</label>
+                    <select
+                      value={editSubject}
+                      onChange={(e) => setEditSubject(e.target.value)}
+                      style={{...inputStyle, cursor: 'pointer'}}
+                    >
+                      <option value="">-- Select a Subject --</option>
+                      <option value="Telugu">Telugu</option>
+                      <option value="Hindi">Hindi</option>
+                      <option value="English">English</option>
+                      <option value="Sanskrit">Sanskrit</option>
+                      <option value="Mathematics">Mathematics</option>
+                      <option value="Science">Science</option>
+                      <option value="Social">Social</option>
+                    </select>
+                  </>
+                )}
 
                 <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
                   <button type="submit" style={buttonStyle} disabled={isLoading}>
@@ -1143,6 +1173,12 @@ function AccountPage({ apiBase, authHeaders, auth, unreadCount = 0, refreshUnrea
                               {request.role}
                             </span>
                           </div>
+                          {request.role === 'lecturer' && request.subject && (
+                            <div>
+                              <span style={{ color: '#5c6c86', fontWeight: '600' }}>Subject: </span>
+                              <span style={{ color: '#2a5298', fontWeight: '600' }}>{request.subject}</span>
+                            </div>
+                          )}
                           {request.personalEmail && (
                             <div>
                               <span style={{ color: '#5c6c86', fontWeight: '600' }}>Personal Email: </span>

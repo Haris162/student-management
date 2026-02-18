@@ -19,6 +19,8 @@ import LoginPage from "./Pages/LoginPage";
 import AccountPage from "./Pages/AccountPage";
 import AddUserPage from "./Pages/AddUserPage";
 import DataflowPage from "./Pages/DataflowPage";
+import DataflowDetailsPage from "./Pages/DataflowDetailsPage";
+import DataflowRunDetailsPage from "./Pages/DataflowRunDetailsPage";
 import NotificationsPage from "./Pages/NotificationsPage";
 
 function App() {
@@ -329,6 +331,29 @@ function App() {
               <RequireAdmin>
                 <DataflowPage
                   onAddStudent={addStudent}
+                  apiBase={apiBase}
+                  authHeaders={authHeaders}
+                />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/dataflow/:dataflowId"
+            element={
+              <RequireAdmin>
+                <DataflowDetailsPage
+                  onAddStudent={addStudent}
+                  apiBase={apiBase}
+                  authHeaders={authHeaders}
+                />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/dataflow/runs/:id"
+            element={
+              <RequireAdmin>
+                <DataflowRunDetailsPage
                   apiBase={apiBase}
                   authHeaders={authHeaders}
                 />
