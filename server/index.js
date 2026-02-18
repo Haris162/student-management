@@ -233,6 +233,46 @@ const dataflowRunSchema = new mongoose.Schema({
 
 const DataflowRun = mongoose.model('DataflowRun', dataflowRunSchema);
 
+/**
+ * Attendance Schema Definition
+ * Tracks daily attendance records for students per subject
+ */
+const attendanceSchema = new mongoose.Schema({
+  date: { type: Date, required: true }, // Attendance date
+  class: { type: String, required: true }, // Class (8, 9, 10, 11, 12)
+  section: { type: String, required: true }, // Section (A, B, C, D)
+  subject: { type: String, required: true }, // Subject (Telugu, Hindi, English, etc.)
+  records: [
+    {
+      studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
+      studentName: String,
+      rollNumber: String,
+      present: Boolean,
+    },
+  ],
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Teacher who marked attendance
+  createdByName: String, // Teacher name for quick reference
+  createdAt: { type: Date, default: Date.now },
+});
+
+const Attendance = mongoose.model('Attendance', attendanceSchema);
+
+/**
+ * Teacher Allocation Schema Definition
+ * Stores teacher assignments to classes and sections per subject
+ */
+const teacherAllocationSchema = new mongoose.Schema({
+  teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  teacherName: String,
+  subject: { type: String, required: true },
+  class: { type: String, required: true }, // Class (8, 9, 10, 11, 12)
+  section: { type: String, required: true }, // Section (A, B, C, D)
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+});
+
+const TeacherAllocation = mongoose.model('TeacherAllocation', teacherAllocationSchema);
+
 // JWT secret key for signing tokens (use environment variable in production)
 const JWT_SECRET = process.env.JWT_SECRET || 'sms_dev_secret';
 
@@ -243,7 +283,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'sms_dev_secret';
  */
 const createToken = (user) => {
   return jwt.sign(
-    { id: user._id, role: user.role, email: user.email },
+    { id: user._id, role: user.role, email: user.email, subject: user.subject },
     JWT_SECRET,
     { expiresIn: '12h' } // Token expires in 12 hours
   );
@@ -605,6 +645,24 @@ app.post('/user-requests/:id/reject', requireAuth, asyncHandler(async (req, res)
   res.send({
     message: 'User request rejected successfully',
   });
+}));
+
+/**
+ * GET /users
+ * Retrieves all users, optionally filtered by role
+ * Query params: ?role=lecturer, ?role=admin, etc.
+ * Access: Authenticated users
+ */
+app.get('/users', requireAuth, asyncHandler(async (req, res) => {
+  const { role } = req.query;
+  const query = {};
+  
+  if (role) {
+    query.role = role;
+  }
+  
+  const users = await User.find(query).select('-passwordHash').sort({ name: 1 });
+  res.send(users);
 }));
 
 /**
@@ -1278,9 +1336,359 @@ app.use((err, req, res, next) => {
   res.status(500).send('Server error');
 });
 
+/**
+ * =========================================
+ * ATTENDANCE ENDPOINTS
+ * =========================================
+ */
+
+/**
+ * POST /attendance
+ * Save attendance record for a class/section/subject on a specific date
+ * Body: { date, class, section, subject, records }
+ * Requires: Authentication (Lecturer or Admin)
+ */
+app.post('/attendance', requireAuth, asyncHandler(async (req, res) => {
+  // Only lecturers and admins can mark attendance
+  if (req.user.role !== 'lecturer' && req.user.role !== 'admin') {
+    return res.status(403).send('Only lecturers and admins can mark attendance');
+  }
+
+  const { date, class: classNum, section, subject, records } = req.body || {};
+  
+  if (!date || !classNum || !section || !subject || !records) {
+    return res.status(400).send('Date, class, section, subject, and records are required');
+  }
+
+  // If lecturer, verify they teach this subject
+  if (req.user.role === 'lecturer' && req.user.subject !== subject) {
+    return res.status(403).send('You can only mark attendance for your assigned subject');
+  }
+
+  // Check if attendance already exists for this date/class/section/subject
+  const attendanceDate = new Date(date);
+  attendanceDate.setHours(0, 0, 0, 0); // Normalize to start of day
+  
+  console.log('[POST ATTENDANCE]', {
+    receivedDate: date,
+    normalizedDate: attendanceDate.toISOString(),
+    class: classNum,
+    section,
+    subject,
+    recordsCount: records.length,
+  });
+  
+  const existingAttendance = await Attendance.findOne({
+    date: attendanceDate,
+    class: classNum,
+    section,
+    subject,
+  });
+
+  if (existingAttendance) {
+    // Update existing attendance
+    existingAttendance.records = records;
+    existingAttendance.createdBy = req.user.id;
+    existingAttendance.createdByName = req.user.name;
+    await existingAttendance.save();
+    console.log('[ATTENDANCE UPDATED]', {
+      attendanceId: existingAttendance._id,
+      date: attendanceDate.toISOString(),
+      class: classNum,
+      section,
+      subject,
+      recordsCount: records.length,
+    });
+    return res.send({
+      message: 'Attendance updated successfully',
+      attendanceId: existingAttendance._id,
+    });
+  }
+
+  // Create new attendance record
+  const attendance = await Attendance.create({
+    date: attendanceDate,
+    class: classNum,
+    section,
+    subject,
+    records,
+    createdBy: req.user.id,
+    createdByName: req.user.name,
+  });
+
+  console.log('[ATTENDANCE CREATED]', {
+    attendanceId: attendance._id,
+    date: attendanceDate.toISOString(),
+    class: classNum,
+    section,
+    subject,
+    recordsCount: records.length,
+  });
+
+  res.status(201).send({
+    message: 'Attendance saved successfully',
+    attendanceId: attendance._id,
+  });
+}));
+
+/**
+ * GET /attendance
+ * Get attendance records with optional filters
+ * Query: ?date=YYYY-MM-DD&class=XX&section=X&subject=XXX
+ * Lecturers only see attendance for their subject
+ * Requires: Authentication
+ */
+app.get('/attendance', requireAuth, asyncHandler(async (req, res) => {
+  const { date, class: classNum, section, subject } = req.query;
+  
+  const filter = {};
+  if (date) {
+    const attendanceDate = new Date(date);
+    attendanceDate.setHours(0, 0, 0, 0); // Normalize to start of day
+    filter.date = attendanceDate;
+  }
+  if (classNum) filter.class = classNum;
+  if (section) filter.section = section;
+  if (subject) filter.subject = subject;
+  
+  // If lecturer, only show attendance for their subject
+  if (req.user.role === 'lecturer') {
+    filter.subject = req.user.subject;
+  }
+
+  const attendance = await Attendance.find(filter).sort({ date: -1 });
+  res.send(attendance);
+}));
+
+/**
+ * GET /attendance/all
+ * Get ALL attendance records (for debugging)
+ * Requires: Authentication
+ */
+app.get('/attendance/all', requireAuth, asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Only admins can view all attendance records');
+  }
+
+  const allAttendance = await Attendance.find().sort({ date: -1, class: 1, section: 1, subject: 1 });
+  
+  console.log('[FETCH ALL ATTENDANCE]', {
+    count: allAttendance.length,
+    records: allAttendance.map(a => ({
+      date: a.date.toISOString(),
+      class: a.class,
+      section: a.section,
+      subject: a.subject,
+      recordsCount: a.records.length,
+    })),
+  });
+
+  res.send(allAttendance);
+}));
+
+/**
+ * GET /attendance/report
+ * Generate attendance report for a date range and subject
+ * Query: ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&subject=XXX&class=XX&section=X
+ * Lecturers only see report for their subject
+ * Requires: Authentication
+ */
+app.get('/attendance/report', requireAuth, asyncHandler(async (req, res) => {
+  const { startDate, endDate, subject, class: classNum, section } = req.query;
+
+  if (!startDate || !endDate) {
+    return res.status(400).send('Start date and end date are required');
+  }
+
+  // Create date objects for the date range
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0); // Start of the day
+  
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999); // End of the day
+
+  const filter = {
+    date: { $gte: start, $lte: end },
+  };
+
+  // If lecturer, filter by their subject
+  if (req.user.role === 'lecturer') {
+    filter.subject = req.user.subject;
+  } else if (subject) {
+    filter.subject = subject;
+  }
+
+  if (classNum) filter.class = classNum;
+  if (section) filter.section = section;
+
+  // Get all attendance records for the date range
+  const records = await Attendance.find(filter).sort({ date: 1, subject: 1 });
+
+  console.log('[ATTENDANCE REPORT]', {
+    startDate,
+    endDate,
+    queryStart: start.toISOString(),
+    queryEnd: end.toISOString(),
+    filter,
+    recordsFound: records.length,
+  });
+
+  // If no records found, return empty array
+  if (records.length === 0) {
+    return res.send([]);
+  }
+
+  // Calculate attendance statistics
+  const studentStats = {};
+
+  records.forEach(record => {
+    record.records.forEach(attendance => {
+      const key = `${attendance.studentName}-${attendance.rollNumber}-${record.subject}`;
+      if (!studentStats[key]) {
+        studentStats[key] = {
+          studentName: attendance.studentName,
+          rollNumber: attendance.rollNumber,
+          class: record.class,
+          section: record.section,
+          subject: record.subject,
+          presentDays: 0,
+          totalDays: 0,
+        };
+      }
+      studentStats[key].totalDays += 1;
+      if (attendance.present) {
+        studentStats[key].presentDays += 1;
+      }
+    });
+  });
+
+  // Calculate percentage and format response
+  const report = Object.values(studentStats).map(stat => ({
+    ...stat,
+    percentage: stat.totalDays > 0 ? (stat.presentDays / stat.totalDays) * 100 : 0,
+  }));
+
+  res.send(report);
+}));
+
+/**
+ * =========================================
+ * TEACHER ALLOCATION ENDPOINTS
+ * =========================================
+ */
+
+/**
+ * POST /teacher-allocations
+ * Assign a teacher to a class/section for a subject
+ * Body: { teacherId, subject, class, section }
+ * Requires: Admin role
+ */
+app.post('/teacher-allocations', requireAuth, asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Only admins can allocate teachers');
+  }
+
+  const { teacherId, subject, class: classNum, section } = req.body || {};
+
+  if (!teacherId || !subject || !classNum || !section) {
+    return res.status(400).send('teacherId, subject, class, and section are required');
+  }
+
+  // Get teacher info
+  const teacher = await User.findById(teacherId);
+  if (!teacher || teacher.role !== 'lecturer') {
+    return res.status(404).send('Teacher not found or is not a lecturer');
+  }
+
+  // Check if allocation already exists
+  const existing = await TeacherAllocation.findOne({
+    teacherId,
+    subject,
+    class: classNum,
+    section,
+  });
+
+  if (existing) {
+    return res.status(409).send('Teacher is already allocated to this class/section/subject');
+  }
+
+  // Create allocation
+  const allocation = await TeacherAllocation.create({
+    teacherId,
+    teacherName: teacher.name,
+    subject,
+    class: classNum,
+    section,
+  });
+
+  res.status(201).send({
+    message: 'Teacher allocated successfully',
+    allocation,
+  });
+}));
+
+/**
+ * GET /teacher-allocations
+ * Get all teacher allocations (admin) or current teacher's allocations (lecturer)
+ * Query: ?subject=XXX&class=XX&section=X (for filtering)
+ * Requires: Authentication
+ */
+app.get('/teacher-allocations', requireAuth, asyncHandler(async (req, res) => {
+  const { subject, class: classNum, section } = req.query;
+
+  let filter = {};
+
+  // If lecturer, only get their allocations
+  if (req.user.role === 'lecturer') {
+    filter.teacherId = req.user.id;
+  }
+
+  if (subject) filter.subject = subject;
+  if (classNum) filter.class = classNum;
+  if (section) filter.section = section;
+
+  const allocations = await TeacherAllocation.find(filter).sort({ class: 1, section: 1 });
+  res.send(allocations);
+}));
+
+/**
+ * DELETE /teacher-allocations/:id
+ * Remove a teacher allocation
+ * Requires: Admin role
+ */
+app.delete('/teacher-allocations/:id', requireAuth, asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Only admins can delete allocations');
+  }
+
+  const allocation = await TeacherAllocation.findByIdAndDelete(req.params.id);
+  if (!allocation) {
+    return res.status(404).send('Allocation not found');
+  }
+
+  res.send({
+    message: 'Allocation deleted successfully',
+  });
+}));
+
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled rejection:', reason);
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  const dbConnected = mongoose.connection.readyState === 1;
+  console.log('[HEALTH CHECK]', {
+    dbConnected,
+    dbState: mongoose.connection.readyState,
+  });
+  res.send({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    database: dbConnected ? 'Connected' : 'Disconnected',
+    dbState: mongoose.connection.readyState,
+  });
 });
 
 // Start the server

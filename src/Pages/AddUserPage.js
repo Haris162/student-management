@@ -357,7 +357,6 @@ function AddUserPage({ apiBase, authHeaders, auth }) {
                 <option value="Telugu">Telugu</option>
                 <option value="Hindi">Hindi</option>
                 <option value="English">English</option>
-                <option value="Sanskrit">Sanskrit</option>
                 <option value="Mathematics">Mathematics</option>
                 <option value="Science">Science</option>
                 <option value="Social">Social</option>

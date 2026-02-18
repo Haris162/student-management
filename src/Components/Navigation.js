@@ -372,6 +372,16 @@ function Navigation({ students = [], onLogout, auth, notificationCount = 0 }) {
               📊 Exams
             </Link>
 
+            <Link
+              to="/attendance"
+              style={menuItemStyle}
+              onClick={() => setShowProfileMenu(false)}
+              onMouseOver={(e) => e.target.style.backgroundColor = "rgba(42, 82, 152, 0.1)"}
+              onMouseOut={(e) => e.target.style.backgroundColor = "transparent"}
+            >
+              ✓ Attendance
+            </Link>
+
             {auth?.user?.role === 'admin' && (
               <Link
                 to="/dataflow"
@@ -381,6 +391,18 @@ function Navigation({ students = [], onLogout, auth, notificationCount = 0 }) {
                 onMouseOut={(e) => e.target.style.backgroundColor = "transparent"}
               >
                 📁 Dataflow
+              </Link>
+            )}
+
+            {auth?.user?.role === 'admin' && (
+              <Link
+                to="/teacher-allocation"
+                style={menuItemStyle}
+                onClick={() => setShowProfileMenu(false)}
+                onMouseOver={(e) => e.target.style.backgroundColor = "rgba(42, 82, 152, 0.1)"}
+                onMouseOut={(e) => e.target.style.backgroundColor = "transparent"}
+              >
+                🎓 Allocate Teachers
               </Link>
             )}
 

@@ -22,6 +22,8 @@ import DataflowPage from "./Pages/DataflowPage";
 import DataflowDetailsPage from "./Pages/DataflowDetailsPage";
 import DataflowRunDetailsPage from "./Pages/DataflowRunDetailsPage";
 import NotificationsPage from "./Pages/NotificationsPage";
+import AttendancePage from "./Pages/AttendancePage";
+import TeacherAllocationPage from "./Pages/TeacherAllocationPage";
 
 function App() {
   const apiBase = `http://${window.location.hostname}:5000`;
@@ -438,6 +440,30 @@ function App() {
                   refreshUnreadCount={refreshUnreadCount}
                 />
               </RequireAuth>
+            }
+          />
+          <Route
+            path="/attendance"
+            element={
+              <RequireAuth>
+                <AttendancePage
+                  apiBase={apiBase}
+                  authHeaders={authHeaders}
+                  auth={auth}
+                />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/teacher-allocation"
+            element={
+              <RequireAdmin>
+                <TeacherAllocationPage
+                  apiBase={apiBase}
+                  authHeaders={authHeaders}
+                  auth={auth}
+                />
+              </RequireAdmin>
             }
           />
           <Route
